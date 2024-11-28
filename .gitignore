@@ -2,3 +2,5 @@
 *.csv
 *.pdf
 *.docx
+*.Rproj
+*.Rproj.user
