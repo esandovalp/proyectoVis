@@ -4,3 +4,7 @@
 *.docx
 *.Rproj
 *.Rproj.user
+.Rproj.user
+.RData
+.Rhistory
+.Ruserdata
