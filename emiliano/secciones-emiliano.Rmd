@@ -18,206 +18,171 @@ library(scales)
 ```
 
 ## App shiny
+```{r prerelase2debug}
+library(shiny)
+library(tidyverse)
+library(DT)
+library(scales)
 
-```{r pressure, echo=FALSE}
-ui <- fluidPage(
-  theme = bslib::bs_theme(version = 4),
-  titlePanel("Family Background Analysis - ENPOL 2021"),
-  
-  verbatimTextOutput("debug_message"),
-  
-  tabsetPanel(
-    # Tab 1: Living Situation Analysis
-    tabPanel("Living Situation",
-             sidebarLayout(
-               sidebarPanel(
-                 selectInput("comparison_group", "Compare by:",
-                             choices = c("Gender" = "SEXO",
-                                         "Indigenous Language" = "P1_31_1",
-                                         "Self-Identification" = "P1_32")),
-                 hr(),
-                 helpText("Note: Gender (1 = Male, 2 = Female)"),
-                 helpText("Indigenous Language & Self-ID (1 = Yes, 2 = No)")
-               ),
-               mainPanel(
-                 plotOutput("living_situation_plot", height = "400px"),
-                 DTOutput("living_situation_table")
-               )
-             )
-    ),
-    
-    # Tab 2: Violence/Precariousness
-    tabPanel("Violence & Precariousness",
-             sidebarLayout(
-               sidebarPanel(
-                 checkboxGroupInput("violence_types", "Select Experiences:",
-                                    choices = c("Physical Violence" = "P1_41_1",
-                                                "Emotional Violence" = "P1_41_2",
-                                                "Economic Hardship" = "P1_41_3",
-                                                "Abandonment" = "P1_41_4")),
-                 selectInput("group_filter", "Filter by:",
-                             choices = c("All", "Women Only", "Indigenous Only"))
-               ),
-               mainPanel(
-                 plotOutput("violence_plot", height = "400px"),
-                 plotOutput("violence_breakdown", height = "300px")
-               )
-             )
-    ),
-    
-    # Tab 3: Security Perception
-    tabPanel("Security Perception",
-             sidebarLayout(
-               sidebarPanel(
-                 selectInput("security_comparison", "Compare by:",
-                             choices = c("Gender" = "SEXO",
-                                         "Indigenous Language" = "P1_31_1",
-                                         "Self-Identification" = "P1_32")),
-                 sliderInput("age_range", "Age Range:",
-                             min = 15, max = 80, value = c(15, 80))
-               ),
-               mainPanel(
-                 plotOutput("security_perception_plot", height = "400px"),
-                 plotOutput("security_trends", height = "300px")
-               )
-             )
-    )
-  )
-)
-
-# Server Logic
-server <- function(input, output, session) {
-  # Debug message output
-  output$debug_message <- renderPrint({
-    cat("Working Directory:", getwd(), "\n")
-    data_path <- "data/ENPOL2021_SOC.csv"  # Changed from "../data/ENPOL2021_SOC.csv"
-    cat("Looking for file:", normalizePath(data_path, mustWork = FALSE), "\n")
-    cat("File exists:", file.exists(data_path), "\n")
-    
-    # List available files
-    cat("\nFiles in current directory:", paste(list.files(), collapse=", "), "\n")
-    cat("Files in parent directory:", paste(list.files(".."), collapse=", "), "\n")
-    if(dir.exists("data")) {  # Changed from "../data"
-      cat("Files in data directory:", paste(list.files("data"), collapse=", "), "\n")
-    } else {
-      cat("Data directory not found\n")
-    }
-  })
-  
-  # Modified data loading with error handling
-  enpol_data <- reactive({
-    read.csv("data/ENPOL2021_SOC.csv", encoding = "latin1")  # Changed from "../data/ENPOL2021_SOC.csv"
-  })
-  
-  # Living Situation Analysis
-  output$living_situation_plot <- renderPlot({
-    req(enpol_data())
-    data <- enpol_data()
-    
-    # Create living situation analysis
-    data %>%
-      group_by(!!sym(input$comparison_group)) %>%
-      summarise(
-        with_parents = mean(P1_8 == 1, na.rm = TRUE),
-        with_relatives = mean(P1_8 == 2, na.rm = TRUE),
-        alone = mean(P1_8 == 3, na.rm = TRUE)
-      ) %>%
-      pivot_longer(cols = c(with_parents, with_relatives, alone),
-                   names_to = "living_situation",
-                   values_to = "percentage") %>%
-      ggplot(aes(x = !!sym(input$comparison_group), 
-                 y = percentage,
-                 fill = living_situation)) +
-      geom_bar(stat = "identity", position = "dodge") +
-      scale_y_continuous(labels = percent) +
-      labs(title = "Living Situation Distribution",
-           x = "Group",
-           y = "Percentage",
-           fill = "Living Situation") +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  })
-  
-  # Violence Experience Analysis
-  output$violence_plot <- renderPlot({
-    req(enpol_data(), input$violence_types)
-    data <- enpol_data()
-    
-    if(input$group_filter == "Women Only") {
-      data <- filter(data, SEXO == 2)
-    } else if(input$group_filter == "Indigenous Only") {
-      data <- filter(data, P1_31_1 == 1)
-    }
-    
-    data %>%
-      select(all_of(input$violence_types)) %>%
-      pivot_longer(everything(),
-                   names_to = "violence_type",
-                   values_to = "experience") %>%
-      group_by(violence_type) %>%
-      summarise(
-        percentage = mean(experience == 1, na.rm = TRUE)
-      ) %>%
-      ggplot(aes(x = reorder(violence_type, -percentage), y = percentage)) +
-      geom_bar(stat = "identity", fill = "darkred") +
-      scale_y_continuous(labels = percent) +
-      labs(title = "Experience of Violence/Precariousness",
-           x = "Type",
-           y = "Percentage Affected") +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  })
-  
-  # Security Perception Analysis
-  output$security_perception_plot <- renderPlot({
-    req(enpol_data())
-    data <- enpol_data()
-    
-    data %>%
-      filter(P1_2 >= input$age_range[1], P1_2 <= input$age_range[2]) %>%
-      group_by(!!sym(input$security_comparison)) %>%
-      summarise(
-        felt_secure = mean(P1_45 == 1, na.rm = TRUE),
-        felt_insecure = mean(P1_45 == 2, na.rm = TRUE)
-      ) %>%
-      pivot_longer(cols = c(felt_secure, felt_insecure),
-                   names_to = "security_perception",
-                   values_to = "percentage") %>%
-      ggplot(aes(x = !!sym(input$security_comparison), 
-                 y = percentage,
-                 fill = security_perception)) +
-      geom_bar(stat = "identity", position = "dodge") +
-      scale_y_continuous(labels = percent) +
-      labs(title = "Security Perception During Childhood/Adolescence",
-           x = "Group",
-           y = "Percentage",
-           fill = "Perception") +
-      theme_minimal()
-  })
-  
-  # Detailed table output
-  output$living_situation_table <- renderDT({
-    req(enpol_data())
-    data <- enpol_data()
-    
-    summary_table <- data %>%
-      group_by(!!sym(input$comparison_group)) %>%
-      summarise(
-        Total_Count = n(),
-        With_Parents = sum(P1_8 == 1, na.rm = TRUE),
-        With_Relatives = sum(P1_8 == 2, na.rm = TRUE),
-        Alone = sum(P1_8 == 3, na.rm = TRUE)
-      )
-    
-    datatable(summary_table,
-              options = list(pageLength = 10),
-              rownames = FALSE)
+# Helper function to safely filter population
+filter_population <- function(data, filter_type) {
+  tryCatch({
+    switch(filter_type,
+           "Todos" = data,
+           "Mujeres" = data %>% filter(SEXO == "2"),
+           "Mujeres Lengua Indígena" = {
+             # Debug print
+             print("Filtering for indigenous language speakers:")
+             print(table(data$P1_12, useNA = "ifany"))
+             print(table(data$SEXO, useNA = "ifany"))
+             print("Women who speak indigenous language:")
+             print(table(data$P1_12[data$SEXO == "2"], useNA = "ifany"))
+             
+             data %>% 
+               filter(SEXO == "2" & P1_12 == "1") %>%
+               mutate(reason_selected = "Language")
+           },
+           "Mujeres Autoadscripción Indígena/Afro" = {
+             # Debug print
+             print("Filtering for indigenous/afro self-identification:")
+             print(table(data$P1_15, useNA = "ifany"))
+             print("Women who self-identify:")
+             print(table(data$P1_15[data$SEXO == "2"], useNA = "ifany"))
+             
+             data %>% 
+               filter(SEXO == "2" & P1_15 %in% c("1", "2")) %>%
+               mutate(reason_selected = "Identity")
+           },
+           data)
+  }, error = function(e) {
+    warning(paste("Error in filtering:", e$message))
+    return(data)
   })
 }
 
-# Run the application
+# UI components remain the same (not shown here for brevity)
+
+# Server Logic
+server <- function(input, output, session) {
+  # Load and merge data
+  data <- reactive({
+    # Load main data
+    main_data <- read.csv("../data/ENPOL2021_8_9_10_11.csv", encoding = "latin1")
+    
+    # Load sociodemographic data
+    soc_data <- read.csv("../data/ENPOL2021_SOC.csv", encoding = "latin1")
+    
+    # Debug print before merge
+    print("Before merge:")
+    print(paste("Main data rows:", nrow(main_data)))
+    print(paste("Soc data rows:", nrow(soc_data)))
+    
+    # Check for matching IDs
+    print("Sample of ID_PER from main data:")
+    print(head(main_data$ID_PER))
+    print("Sample of ID_PER from soc data:")
+    print(head(soc_data$ID_PER))
+    
+    # Merge the datasets
+    merged_data <- main_data %>%
+      left_join(soc_data %>% select(ID_PER, P1_12, P1_15), 
+                by = "ID_PER")
+    
+    # Debug print after merge
+    print("After merge:")
+    print(paste("Merged data rows:", nrow(merged_data)))
+    print("Indigenous language column (P1_12):")
+    print(table(merged_data$P1_12, useNA = "ifany"))
+    print("Self-identification column (P1_15):")
+    print(table(merged_data$P1_15, useNA = "ifany"))
+    
+    return(merged_data)
+  })
+  
+  # Filtered data
+  filtered_data <- reactive({
+    req(data())
+    df <- data()
+    df <- filter_population(df, input$population_filter)
+    df <- df %>% filter(NOM_ENT == "Campeche")
+    return(df)
+  })
+
+  # Debug info
+  output$debug_info <- renderPrint({
+    df <- data()
+    cat("Data Summary:\n")
+    cat("Total records:", nrow(df), "\n")
+    cat("\nIndigenous language speakers (P1_12):\n")
+    print(table(df$P1_12, useNA = "ifany"))
+    cat("\nSelf-identification (P1_15):\n")
+    print(table(df$P1_15, useNA = "ifany"))
+    cat("\nCurrent filter:", input$population_filter, "\n")
+    
+    filtered <- filtered_data()
+    cat("\nFiltered records:", nrow(filtered), "\n")
+    if(nrow(filtered) > 0) {
+      cat("Sample of filtered data:\n")
+      print(head(filtered[, c("NOM_ENT", "SEXO", "P1_12", "P1_15")]))
+    }
+  })
+
+  # Plot: Living Situation
+  output$living_situation_plot <- renderPlot({
+    req(filtered_data())
+    df <- filtered_data() %>%
+      summarise(
+        "Vivía con mamá" = mean(P9_8_1 == "1", na.rm = TRUE),
+        "Vivía con papá" = mean(P9_8_2 == "1", na.rm = TRUE)
+      ) %>%
+      pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
+    
+    ggplot(df, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+      geom_bar(stat = "identity") +
+      scale_y_continuous(labels = scales::percent) +
+      labs(title = "Con quién vivía en la infancia", y = "Porcentaje") +
+      theme_minimal()
+  })
+
+  # Plot: Violence
+  output$violence_plot <- renderPlot({
+    req(filtered_data())
+    df <- filtered_data() %>%
+      summarise(
+        "Presenció violencia" = mean(P9_10_3 == "1", na.rm = TRUE),
+        "Perteneció a pandilla" = mean(P9_10_4 == "1", na.rm = TRUE)
+      ) %>%
+      pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
+    
+    ggplot(df, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+      geom_bar(stat = "identity") +
+      scale_y_continuous(labels = scales::percent) +
+      labs(title = "Experiencias de violencia", y = "Porcentaje") +
+      theme_minimal()
+  })
+
+  # Plot: Security
+  output$security_plot <- renderPlot({
+    req(filtered_data())
+    df <- filtered_data() %>%
+      summarise(
+        "Se sentía seguro" = mean(P9_10_1 == "1", na.rm = TRUE),
+        "Vecinos se preocupaban" = mean(P9_10_2 == "1", na.rm = TRUE)
+      ) %>%
+      pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
+    
+    ggplot(df, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+      geom_bar(stat = "identity") +
+      scale_y_continuous(labels = scales::percent) +
+      labs(title = "Percepción de seguridad", y = "Porcentaje") +
+      theme_minimal()
+  })
+}
+
 shinyApp(ui = ui, server = server)
+
 ```
+# NOTA: LAS DEMAS ESTAN MAL, NECESITO CORREGIRLAS, LA SECCION 1 CASI QUEDA
 ---
 # Seccion 2 y 3 
 
@@ -268,7 +233,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   enpol_data <- reactive({
-    read.csv("data/ENPOL2021_2_3.csv", encoding = "latin1")
+    read.csv("../data/ENPOL2021_2_3.csv", encoding = "latin1")
   })
   
   # Marital Status Analysis
@@ -403,7 +368,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   enpol_data <- reactive({
-    read.csv("data/ENPOL2021_4.csv", encoding = "latin1")
+    read.csv("../data/ENPOL2021_4.csv", encoding = "latin1")
   })
   
   # Motherhood Status Analysis
@@ -534,7 +499,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   enpol_data <- reactive({
-    read.csv("data/ENPOL2021_5.csv", encoding = "latin1")
+    read.csv("../data/ENPOL2021_5.csv", encoding = "latin1")
   })
   
   # Support Analysis
@@ -663,7 +628,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   enpol_data <- reactive({
-    read.csv("data/ENPOL2021_6.csv", encoding = "latin1") %>%
+    read.csv("../data/ENPOL2021_6.csv", encoding = "latin1") %>%
       filter(SEXO == 2)  # Filter for women only
   })
   
