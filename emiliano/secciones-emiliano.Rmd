@@ -18,83 +18,117 @@ library(scales)
 ```
 
 ## App shiny
-```{r prerelase2debug}
+```{r release}
 library(shiny)
 library(tidyverse)
 library(DT)
 library(scales)
 
-# Helper function to safely filter population
-filter_population <- function(data, filter_type) {
-  tryCatch({
-    switch(filter_type,
-           "Todos" = data,
-           "Mujeres" = data %>% filter(SEXO == "2"),
-           "Mujeres Lengua Indígena" = {
-             # Debug print
-             print("Filtering for indigenous language speakers:")
-             print(table(data$P1_12, useNA = "ifany"))
-             print(table(data$SEXO, useNA = "ifany"))
-             print("Women who speak indigenous language:")
-             print(table(data$P1_12[data$SEXO == "2"], useNA = "ifany"))
-             
-             data %>% 
-               filter(SEXO == "2" & P1_12 == "1") %>%
-               mutate(reason_selected = "Language")
-           },
-           "Mujeres Autoadscripción Indígena/Afro" = {
-             # Debug print
-             print("Filtering for indigenous/afro self-identification:")
-             print(table(data$P1_15, useNA = "ifany"))
-             print("Women who self-identify:")
-             print(table(data$P1_15[data$SEXO == "2"], useNA = "ifany"))
-             
-             data %>% 
-               filter(SEXO == "2" & P1_15 %in% c("1", "2")) %>%
-               mutate(reason_selected = "Identity")
-           },
-           data)
-  }, error = function(e) {
-    warning(paste("Error in filtering:", e$message))
-    return(data)
-  })
+# Helper function to format ID_PER consistently
+format_id_per <- function(id) {
+  as.character(sprintf("%.4f", as.numeric(id)))
 }
 
-# UI components remain the same (not shown here for brevity)
+# Helper function to create empty data message
+create_empty_message <- function(filter_type) {
+  div(
+    style = "text-align: center; color: #666; padding: 20px;",
+    h4("No hay datos disponibles"),
+    p(paste("No se encontraron registros para", filter_type, "en Campeche")),
+    p("Por favor seleccione otro filtro")
+  )
+}
 
-# Server Logic
+# Custom theme for consistent plot styling
+custom_theme <- function() {
+  theme_minimal() +
+    theme(
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5, margin = margin(b = 20)),
+      plot.subtitle = element_text(size = 12, hjust = 0.5, margin = margin(b = 10)),
+      axis.title = element_text(size = 12, face = "bold"),
+      axis.text = element_text(size = 10),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.title = element_text(size = 10, face = "bold"),
+      legend.text = element_text(size = 9),
+      legend.position = "bottom",
+      panel.grid.major = element_line(color = "gray90"),
+      panel.grid.minor = element_blank(),
+      strip.text = element_text(size = 11, face = "bold")
+    )
+}
+
+# Enhanced table formatting function
+format_dt_table <- function(data) {
+  datatable(
+    data,
+    options = list(
+      dom = 't',
+      ordering = FALSE,
+      pageLength = -1,
+      headerCallback = JS(
+        "function(thead, data, start, end, display){",
+        "  $(thead).css('background-color', '#f0f0f0');",
+        "  $(thead).css('font-weight', 'bold');",
+        "}"
+      )
+    ),
+    rownames = FALSE,
+    class = 'cell-border stripe hover'
+  ) %>%
+    formatStyle(
+      columns = names(data),
+      backgroundColor = styleEqual(c("0%", "100%"), c('#f8f9fa', '#e9ecef')),
+      fontWeight = 'bold'
+    )
+}
+
+# UI Components
+ui <- fluidPage(
+  titlePanel("Análisis de Antecedentes Familiares - ENPOL 2021"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("population_filter", "Filtrar por:",
+                 choices = c("Todos",
+                           "Mujeres",
+                           "Mujeres Lengua Indígena",
+                           "Mujeres Autoadscripción Indígena/Afro")),
+      selectInput("state_filter", "Estado:",
+                 choices = "Campeche")
+    ),
+    mainPanel(
+      uiOutput("data_message"),
+      
+      tabsetPanel(
+        tabPanel("Convivencia",
+                plotOutput("living_situation_plot"),
+                h4("Datos:"),
+                DTOutput("living_situation_table")),
+        tabPanel("Violencia/Precariedad",
+                plotOutput("violence_plot"),
+                h4("Datos:"),
+                DTOutput("violence_table")),
+        tabPanel("Percepción de Seguridad",
+                plotOutput("security_plot"),
+                h4("Datos:"),
+                DTOutput("security_table"))
+      )
+    )
+  )
+)
+
 server <- function(input, output, session) {
   # Load and merge data
   data <- reactive({
-    # Load main data
-    main_data <- read.csv("../data/ENPOL2021_8_9_10_11.csv", encoding = "latin1")
+    main_data <- read.csv("../data/ENPOL2021_8_9_10_11.csv", encoding = "latin1") %>%
+      mutate(ID_PER = format_id_per(ID_PER))
     
-    # Load sociodemographic data
-    soc_data <- read.csv("../data/ENPOL2021_SOC.csv", encoding = "latin1")
+    soc_data <- read.csv("../data/ENPOL2021_SOC.csv", encoding = "latin1") %>%
+      mutate(ID_PER = format_id_per(ID_PER))
     
-    # Debug print before merge
-    print("Before merge:")
-    print(paste("Main data rows:", nrow(main_data)))
-    print(paste("Soc data rows:", nrow(soc_data)))
-    
-    # Check for matching IDs
-    print("Sample of ID_PER from main data:")
-    print(head(main_data$ID_PER))
-    print("Sample of ID_PER from soc data:")
-    print(head(soc_data$ID_PER))
-    
-    # Merge the datasets
     merged_data <- main_data %>%
       left_join(soc_data %>% select(ID_PER, P1_12, P1_15), 
                 by = "ID_PER")
-    
-    # Debug print after merge
-    print("After merge:")
-    print(paste("Merged data rows:", nrow(merged_data)))
-    print("Indigenous language column (P1_12):")
-    print(table(merged_data$P1_12, useNA = "ifany"))
-    print("Self-identification column (P1_15):")
-    print(table(merged_data$P1_15, useNA = "ifany"))
     
     return(merged_data)
   })
@@ -103,86 +137,439 @@ server <- function(input, output, session) {
   filtered_data <- reactive({
     req(data())
     df <- data()
-    df <- filter_population(df, input$population_filter)
-    df <- df %>% filter(NOM_ENT == "Campeche")
-    return(df)
-  })
-
-  # Debug info
-  output$debug_info <- renderPrint({
-    df <- data()
-    cat("Data Summary:\n")
-    cat("Total records:", nrow(df), "\n")
-    cat("\nIndigenous language speakers (P1_12):\n")
-    print(table(df$P1_12, useNA = "ifany"))
-    cat("\nSelf-identification (P1_15):\n")
-    print(table(df$P1_15, useNA = "ifany"))
-    cat("\nCurrent filter:", input$population_filter, "\n")
     
-    filtered <- filtered_data()
-    cat("\nFiltered records:", nrow(filtered), "\n")
-    if(nrow(filtered) > 0) {
-      cat("Sample of filtered data:\n")
-      print(head(filtered[, c("NOM_ENT", "SEXO", "P1_12", "P1_15")]))
+    result <- switch(input$population_filter,
+                    "Todos" = df,
+                    "Mujeres" = df %>% filter(SEXO == "2"),
+                    "Mujeres Lengua Indígena" = df %>% 
+                      filter(SEXO == "2", P1_12 == "1"),
+                    "Mujeres Autoadscripción Indígena/Afro" = df %>% 
+                      filter(SEXO == "2", P1_15 %in% c("1", "2")))
+    
+    result <- result %>% filter(NOM_ENT == "Campeche")
+    
+    print(paste("Filter:", input$population_filter))
+    print(paste("Total records before Campeche filter:", nrow(df)))
+    print(paste("Records in Campeche:", nrow(result)))
+    
+    return(result)
+  })
+  
+  # Data availability message
+  output$data_message <- renderUI({
+    req(filtered_data())
+    df <- filtered_data()
+    
+    if(nrow(df) == 0) {
+      create_empty_message(input$population_filter)
     }
   })
-
-  # Plot: Living Situation
+  
+  # Living Situation Plot
   output$living_situation_plot <- renderPlot({
     req(filtered_data())
-    df <- filtered_data() %>%
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    
+    plot_data <- df %>%
       summarise(
         "Vivía con mamá" = mean(P9_8_1 == "1", na.rm = TRUE),
         "Vivía con papá" = mean(P9_8_2 == "1", na.rm = TRUE)
       ) %>%
       pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
     
-    ggplot(df, aes(x = Situación, y = Porcentaje, fill = Situación)) +
-      geom_bar(stat = "identity") +
-      scale_y_continuous(labels = scales::percent) +
-      labs(title = "Con quién vivía en la infancia", y = "Porcentaje") +
-      theme_minimal()
+    ggplot(plot_data, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+      geom_bar(stat = "identity", width = 0.7) +
+      geom_text(aes(label = scales::percent(Porcentaje, accuracy = 0.1)), 
+                position = position_stack(vjust = 0.5),
+                size = 4, fontface = "bold") +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1),
+                        breaks = seq(0, 1, 0.2)) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(title = "Convivencia Familiar en la Infancia",
+           subtitle = paste("Filtro:", input$population_filter),
+           y = "Porcentaje",
+           x = "") +
+      custom_theme()
   })
-
-  # Plot: Violence
+  
+  # Violence Plot
   output$violence_plot <- renderPlot({
     req(filtered_data())
-    df <- filtered_data() %>%
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    
+    plot_data <- df %>%
       summarise(
         "Presenció violencia" = mean(P9_10_3 == "1", na.rm = TRUE),
         "Perteneció a pandilla" = mean(P9_10_4 == "1", na.rm = TRUE)
       ) %>%
       pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
     
-    ggplot(df, aes(x = Situación, y = Porcentaje, fill = Situación)) +
-      geom_bar(stat = "identity") +
-      scale_y_continuous(labels = scales::percent) +
-      labs(title = "Experiencias de violencia", y = "Porcentaje") +
-      theme_minimal()
+    ggplot(plot_data, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+      geom_bar(stat = "identity", width = 0.7) +
+      geom_text(aes(label = scales::percent(Porcentaje, accuracy = 0.1)),
+                position = position_stack(vjust = 0.5),
+                size = 4, fontface = "bold") +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1),
+                        breaks = seq(0, 1, 0.2)) +
+      scale_fill_brewer(palette = "Set3") +
+      labs(title = "Experiencias de Violencia",
+           subtitle = paste("Filtro:", input$population_filter),
+           y = "Porcentaje",
+           x = "") +
+      custom_theme()
   })
-
-  # Plot: Security
+  
+  # Security Plot
   output$security_plot <- renderPlot({
     req(filtered_data())
-    df <- filtered_data() %>%
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    
+    plot_data <- df %>%
       summarise(
         "Se sentía seguro" = mean(P9_10_1 == "1", na.rm = TRUE),
         "Vecinos se preocupaban" = mean(P9_10_2 == "1", na.rm = TRUE)
       ) %>%
       pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
     
-    ggplot(df, aes(x = Situación, y = Porcentaje, fill = Situación)) +
-      geom_bar(stat = "identity") +
-      scale_y_continuous(labels = scales::percent) +
-      labs(title = "Percepción de seguridad", y = "Porcentaje") +
-      theme_minimal()
+    ggplot(plot_data, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+      geom_bar(stat = "identity", width = 0.7) +
+      geom_text(aes(label = scales::percent(Porcentaje, accuracy = 0.1)),
+                position = position_stack(vjust = 0.5),
+                size = 4, fontface = "bold") +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1),
+                        breaks = seq(0, 1, 0.2)) +
+      scale_fill_brewer(palette = "Set1") +
+      labs(title = "Percepción de Seguridad",
+           subtitle = paste("Filtro:", input$population_filter),
+           y = "Porcentaje",
+           x = "") +
+      custom_theme()
+  })
+  
+  # Tables with enhanced formatting
+  output$living_situation_table <- renderDT({
+    req(filtered_data())
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    
+    format_dt_table(df %>%
+      summarise(
+        "Vivía con mamá" = scales::percent(mean(P9_8_1 == "1", na.rm = TRUE), accuracy = 0.1),
+        "Vivía con papá" = scales::percent(mean(P9_8_2 == "1", na.rm = TRUE), accuracy = 0.1)
+      ))
+  })
+  
+  output$violence_table <- renderDT({
+    req(filtered_data())
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    
+    format_dt_table(df %>%
+      summarise(
+        "Presenció violencia" = scales::percent(mean(P9_10_3 == "1", na.rm = TRUE), accuracy = 0.1),
+        "Perteneció a pandilla" = scales::percent(mean(P9_10_4 == "1", na.rm = TRUE), accuracy = 0.1)
+      ))
+  })
+  
+  output$security_table <- renderDT({
+    req(filtered_data())
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    
+    format_dt_table(df %>%
+      summarise(
+        "Se sentía seguro" = scales::percent(mean(P9_10_1 == "1", na.rm = TRUE), accuracy = 0.1),
+        "Vecinos se preocupaban" = scales::percent(mean(P9_10_2 == "1", na.rm = TRUE), accuracy = 0.1)
+      ))
   })
 }
 
 shinyApp(ui = ui, server = server)
-
 ```
-# NOTA: LAS DEMAS ESTAN MAL, NECESITO CORREGIRLAS, LA SECCION 1 CASI QUEDA
+
+### Con mapas 
+```{R}
+library(shiny)
+library(leaflet)
+library(tidyverse)
+library(DT)
+library(scales)
+library(leaflet.providers)
+
+# UI Components
+ui <- fluidPage(
+  theme = bslib::bs_theme(version = 4),
+  titlePanel("Maternidad y Salud en el Sistema Penitenciario Mexicano"),
+  
+  tabsetPanel(
+    # First Page - Map and Graph
+    tabPanel("Visualización Geográfica",
+      fluidRow(
+        column(12,
+          p("Este análisis muestra la distribución y condiciones de las mujeres que viven con sus hijos en prisión 
+            y aquellas que han sido diagnosticadas con enfermedades durante su reclusión.", 
+            style = "font-size: 16px; margin: 20px 0;")
+        )
+      ),
+      fluidRow(
+        # Map and graph layout
+        column(6,
+          leafletOutput("map", height = 500)
+        ),
+        column(6,
+          plotOutput("barPlot", height = 500)
+        )
+      ),
+      fluidRow(
+        column(12,
+          p("* Haga clic en un estado del mapa para ver detalles específicos",
+            style = "font-style: italic; color: #666; margin-top: 10px;")
+        )
+      )
+    ),
+    
+    # Second Page - Interactive Table
+    tabPanel("Datos Detallados",
+      fluidRow(
+        column(12,
+          p("Explore los datos detallados sobre las condiciones de salud y maternidad en el sistema penitenciario.", 
+            style = "font-size: 16px; margin: 20px 0;")
+        )
+      ),
+      fluidRow(
+        column(12,
+          DTOutput("dataTable")
+        )
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  # Coordinates data
+  coords <- data.frame(
+    NOM_ENT = c("Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas",
+                "Chihuahua", "Coahuila", "Colima", "Durango", "Guanajuato", "Guerrero", "Hidalgo",
+                "Jalisco", "Estado de México", "Michoacán", "Morelos", "Nayarit", "Nuevo León",
+                "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa",
+                "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas",
+                "Ciudad de México"),
+    lat = c(21.885, 32.526, 24.144, 19.832, 16.757, 28.635, 27.058, 19.123, 24.027, 20.917, 17.439, 20.091,
+            20.659, 19.359, 19.566, 18.926, 21.751, 25.686, 17.071, 19.041, 20.588, 19.666, 22.158, 24.808,
+            29.072, 18.003, 23.741, 19.313, 19.173, 20.709, 22.770, 19.432),
+    lng = c(-102.291, -116.991, -110.299, -90.538, -93.113, -106.089, -101.706, -104.825, -104.653, -101.256,
+            -99.543, -98.762, -103.348, -99.650, -101.189, -99.070, -104.895, -100.316, -96.721, -98.206,
+            -100.393, -88.327, -100.987, -107.394, -110.974, -92.919, -98.998, -98.239, -96.142, -89.070,
+            -102.583, -99.133)
+  )
+
+  # Reactive data
+  data <- reactive({
+    # Load and merge motherhood data
+    data_mothers <- read.csv("../data/ENPOL2021_6.csv", encoding = "latin1") %>%
+      filter(SEXO == 2) %>%  # Filter for women
+      group_by(NOM_ENT) %>%
+      summarise(total_mujeres = n(),
+                mujeres_con_hijos = sum(P6_1 == 1, na.rm = TRUE))
+    
+    # Load and merge health data
+    data_health <- read.csv("../data/ENPOL2021_SOC.csv", encoding = "latin1") %>%
+      filter(SEXO == 2) %>%  # Filter for women
+      group_by(NOM_ENT) %>%
+      summarise(mujeres_enfermas = sum(P1_24_1 == 1, na.rm = TRUE))
+    
+    # Combine data
+    data_combined <- data_mothers %>%
+      left_join(data_health, by = "NOM_ENT") %>%
+      left_join(coords, by = "NOM_ENT")
+    
+    return(data_combined)
+  })
+  
+  # Selected state
+  selected_state <- reactiveVal(NULL)
+  
+  # Map output
+  output$map <- renderLeaflet({
+  req(data())
+  
+  # Create a custom color palette with better scaled purples
+  pal <- colorNumeric(
+    palette = c("#F5F0F7", "#9B59B6", "#8E44AD", "#6C3483"), # Light to dark purple
+    domain = data()$mujeres_con_hijos
+  )
+  
+  # Adjust the radius scaling factor
+  radius_scale <- function(x) {
+    sqrt(x) * 1.5  # Reduced multiplier for smaller bubbles
+  }
+  
+  leaflet(data()) %>%
+    addProviderTiles(providers$CartoDB.Positron) %>%  # Light background
+    addCircleMarkers(
+      lng = ~lng,
+      lat = ~lat,
+      radius = ~radius_scale(mujeres_con_hijos),  # Adjusted radius scaling
+      color = ~pal(mujeres_con_hijos),
+      fillOpacity = 0.7,
+      stroke = TRUE,
+      weight = 1,
+      popup = ~sprintf(
+        "<div style='padding: 10px; border-radius: 5px;'>
+         <strong style='color: #4A235A;'>%s</strong><br/>
+         <hr style='margin: 5px 0;'/>
+         <b>Mujeres con hijos:</b> %d<br/>
+         <b>Mujeres diagnosticadas:</b> %d<br/>
+         <b>Total de mujeres:</b> %d<br/>
+         <hr style='margin: 5px 0;'/>
+         <b>Porcentaje con hijos:</b> %.1f%%<br/>
+         <b>Porcentaje diagnosticadas:</b> %.1f%%</div>",
+        NOM_ENT,
+        mujeres_con_hijos,
+        mujeres_enfermas,
+        total_mujeres,
+        mujeres_con_hijos/total_mujeres * 100,
+        mujeres_enfermas/total_mujeres * 100
+      ),
+      layerId = ~NOM_ENT,
+      label = ~NOM_ENT
+    ) %>%
+    addLegend(
+      position = "bottomright",
+      pal = pal,
+      values = ~mujeres_con_hijos,
+      title = "Mujeres con hijos",
+      opacity = 0.7,
+      labFormat = labelFormat(suffix = " mujeres")
+    )
+})
+  
+  # Observe map clicks
+  observeEvent(input$map_marker_click, {
+    selected_state(input$map_marker_click$id)
+  })
+  
+  # Bar plot output
+  output$barPlot <- renderPlot({
+  req(data())
+  
+  plot_data <- data()
+  
+  if (!is.null(selected_state())) {
+    plot_data <- plot_data %>%
+      filter(NOM_ENT == selected_state())
+  }
+  
+  ggplot(plot_data, aes(x = reorder(NOM_ENT, -mujeres_con_hijos))) +
+    geom_bar(aes(y = mujeres_con_hijos, fill = "Mujeres con hijos"), 
+             stat = "identity", alpha = 0.9) +
+    geom_bar(aes(y = mujeres_enfermas, fill = "Mujeres diagnosticadas"), 
+             stat = "identity", alpha = 0.7) +
+    # Add data labels
+    geom_text(aes(y = mujeres_con_hijos, 
+                  label = mujeres_con_hijos),
+              vjust = -0.5, 
+              size = 3.5, 
+              fontface = "bold") +
+    geom_text(aes(y = mujeres_enfermas, 
+                  label = mujeres_enfermas),
+              vjust = 1.5, 
+              size = 3.5, 
+              fontface = "bold",
+              color = "white") +
+    scale_fill_manual(values = c("Mujeres con hijos" = "#8E44AD", 
+                                "Mujeres diagnosticadas" = "#C0392B")) +
+    labs(
+      title = if (!is.null(selected_state())) {
+        paste("Detalle de", selected_state())
+      } else {
+        "Distribución de Mujeres en el Sistema Penitenciario"
+      },
+      subtitle = if (!is.null(selected_state())) {
+        paste("Total de mujeres:", 
+              sum(plot_data$total_mujeres, na.rm = TRUE))
+      } else {
+        "Por Estado y Condición"
+      },
+      x = "Estado",
+      y = "Número de Mujeres",
+      fill = "Categoría"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, 
+                              size = 16, 
+                              face = "bold",
+                              margin = margin(b = 10)),
+      plot.subtitle = element_text(hjust = 0.5, 
+                                 size = 12, 
+                                 color = "gray40",
+                                 margin = margin(b = 20)),
+      axis.text.x = element_text(angle = 45, 
+                               hjust = 1, 
+                               size = 10),
+      axis.text.y = element_text(size = 10),
+      axis.title = element_text(size = 12, face = "bold"),
+      legend.position = "bottom",
+      legend.title = element_text(size = 11),
+      legend.text = element_text(size = 10),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_line(color = "gray90")
+    ) +
+    scale_y_continuous(
+      expand = expansion(mult = c(0, 0.1)),
+      labels = scales::comma
+    )
+  })
+  
+  # Interactive table output
+  output$dataTable <- renderDT({
+  req(data())
+  
+  formatted_data <- data() %>%
+    select(
+      Estado = NOM_ENT,
+      `Total Mujeres` = total_mujeres,
+      `Mujeres con Hijos` = mujeres_con_hijos,
+      `Mujeres Diagnosticadas` = mujeres_enfermas
+    ) %>%
+    mutate(
+      `% Con Hijos` = (`Mujeres con Hijos` / `Total Mujeres`),
+      `% Diagnosticadas` = (`Mujeres Diagnosticadas` / `Total Mujeres`)
+    )
+  
+  datatable(
+    formatted_data,
+    options = list(
+      pageLength = 10,
+      order = list(1, 'desc'),
+      dom = 'lrtip',
+      language = list(
+        url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'
+      )
+    ),
+    rownames = FALSE,
+    class = 'cell-border stripe hover',
+    filter = 'top'
+  ) %>%
+    formatRound(c("Total Mujeres", "Mujeres con Hijos", "Mujeres Diagnosticadas"), 0) %>%
+    formatPercentage(c("% Con Hijos", "% Diagnosticadas"), 2) %>%
+    formatStyle(
+      columns = c("% Con Hijos", "% Diagnosticadas"),
+      background = styleColorBar(c(0, 1), "#8E44AD40"),
+      backgroundSize = '98% 88%',
+      backgroundRepeat = 'no-repeat',
+      backgroundPosition = 'center'
+    )
+})
+}
+
+shinyApp(ui = ui, server = server)
+```
 ---
 # Seccion 2 y 3 
 
