@@ -7,7 +7,267 @@ date: "2024-11-29"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+---
+# Dashboard Final
+```{R}
+library(shiny)
+library(tidyverse)
+library(DT)
+library(scales)
+library(leaflet)
+library(bslib)
+library(leaflet.providers)
 
+# UI Definition
+ui <- navbarPage(
+  title = "Análisis del Sistema Penitenciario",
+  theme = bs_theme(version = 4),
+  
+  # Introduction Page
+  tabPanel("Inicio",
+    fluidRow(
+      column(12, 
+        div(
+          style = "padding: 20px; text-align: center;",
+          h1("Análisis del Sistema Penitenciario en México"),
+          p("Un estudio basado en la Encuesta Nacional de Población Privada de la Libertad 2021"),
+          hr()
+        )
+      )
+    ),
+    fluidRow(
+      column(12,
+        div(
+          style = "padding: 20px;",
+          h3("Secciones del Análisis"),
+          
+          # Story Flow Navigation Cards
+          div(
+            style = "display: flex; flex-wrap: wrap; justify-content: space-around;",
+            
+            # Section 1: Family Background
+            div(
+              class = "card",
+              style = "width: 18rem; margin: 10px;",
+              div(
+                class = "card-body",
+                h5(class = "card-title", "1. Antecedentes Familiares"),
+                p(class = "card-text", "Análisis de la convivencia familiar y situaciones de violencia en la infancia."),
+                actionLink("goto_section1", "Explorar →", class = "btn btn-primary")
+              )
+            ),
+            
+            # Section 8: Work History
+            div(
+              class = "card",
+              style = "width: 18rem; margin: 10px;",
+              div(
+                class = "card-body",
+                h5(class = "card-title", "8. Historial Laboral"),
+                p(class = "card-text", "Análisis del empleo y fuentes de ingresos previos a la detención."),
+                actionLink("goto_section8", "Explorar →", class = "btn btn-primary")
+              )
+            ),
+            
+            # Section 11: Education Access
+            div(
+              class = "card",
+              style = "width: 18rem; margin: 10px;",
+              div(
+                class = "card-body",
+                h5(class = "card-title", "11. Acceso a Educación"),
+                p(class = "card-text", "Análisis de niveles educativos y razones de abandono escolar."),
+                actionLink("goto_section11", "Explorar →", class = "btn btn-primary")
+              )
+            ),
+            
+            # Section 12: Housing (Placeholder)
+            div(
+              class = "card",
+              style = "width: 18rem; margin: 10px; opacity: 0.7;",
+              div(
+                class = "card-body",
+                h5(class = "card-title", "12. Vivienda"),
+                p(class = "card-text", "Análisis de condiciones de vivienda previas a la detención."),
+                actionLink("goto_section12", "Próximamente →", class = "btn btn-secondary")
+              )
+            ),
+            
+            # Section 13: Housing Expectations (Placeholder)
+            div(
+              class = "card",
+              style = "width: 18rem; margin: 10px; opacity: 0.7;",
+              div(
+                class = "card-body",
+                h5(class = "card-title", "13. Expectativas de Vivienda"),
+                p(class = "card-text", "Análisis de perspectivas de vivienda post-liberación."),
+                actionLink("goto_section13", "Próximamente →", class = "btn btn-secondary")
+              )
+            ),
+            
+            # Section 15: Criminal Records (Placeholder)
+            div(
+              class = "card",
+              style = "width: 18rem; margin: 10px; opacity: 0.7;",
+              div(
+                class = "card-body",
+                h5(class = "card-title", "15. Antecedentes Penales"),
+                p(class = "card-text", "Análisis de historiales criminales previos."),
+                actionLink("goto_section15", "Próximamente →", class = "btn btn-secondary")
+              )
+            )
+          )
+        )
+      )
+    )
+  ),
+  
+  # Section 1: Family Background (Using existing code)
+  tabPanel("Antecedentes Familiares",
+    sidebarLayout(
+      sidebarPanel(
+        selectInput("population_filter", "Filtrar por:",
+                   choices = c("Todos",
+                             "Mujeres",
+                             "Mujeres Lengua Indígena",
+                             "Mujeres Autoadscripción Indígena/Afro")),
+        selectInput("state_filter", "Estado:",
+                   choices = "Campeche")
+      ),
+      mainPanel(
+        tabsetPanel(
+          tabPanel("Convivencia",
+                  plotOutput("living_situation_plot"),
+                  DTOutput("living_situation_table")),
+          tabPanel("Violencia/Precariedad",
+                  plotOutput("violence_plot"),
+                  DTOutput("violence_table")),
+          tabPanel("Percepción de Seguridad",
+                  plotOutput("security_plot"),
+                  DTOutput("security_table"))
+        )
+      )
+    )
+  ),
+  
+  # Section 8: Work History (Using existing code)
+  tabPanel("Historial Laboral",
+    titlePanel("Análisis de Empleo"),
+    sidebarLayout(
+      sidebarPanel(
+        selectInput("work_filter", "Población:",
+                   choices = c("all" = "all",
+                             "women" = "women",
+                             "indigenous" = "indigenous",
+                             "afro" = "afro"))
+      ),
+      mainPanel(
+        tabsetPanel(
+          tabPanel("Estado Laboral", plotOutput("status_plot")),
+          tabPanel("Ocupaciones", plotOutput("occupations_plot")),
+          tabPanel("Fuentes de Ingreso", plotOutput("income_plot"))
+        )
+      )
+    )
+  ),
+  
+  # Section 11: Education Access (Using existing code)
+  tabPanel("Acceso a Educación",
+    sidebarLayout(
+      sidebarPanel(
+        selectInput("edu_population_filter", "Filtrar por:",
+                   choices = c("Todos",
+                             "Mujeres",
+                             "Mujeres Lengua Indígena",
+                             "Mujeres Autoadscripción Indígena/Afro")),
+        selectInput("edu_state_filter", "Estado:",
+                   choices = "Campeche")
+      ),
+      mainPanel(
+        tabsetPanel(
+          tabPanel("Nivel Educativo",
+                  plotOutput("education_level_plot"),
+                  DTOutput("education_level_table")),
+          tabPanel("Educación en Prisión",
+                  plotOutput("prison_education_plot"),
+                  DTOutput("prison_education_table")),
+          tabPanel("Razones de Abandono",
+                  plotOutput("dropout_reasons_plot"),
+                  DTOutput("dropout_reasons_table"))
+        )
+      )
+    )
+  ),
+  
+  # Placeholder panels for future sections
+  tabPanel("Vivienda",
+    fluidRow(
+      column(12,
+        div(
+          style = "text-align: center; padding: 50px;",
+          h3("Sección en Desarrollo"),
+          p("El análisis de condiciones de vivienda estará disponible próximamente.")
+        )
+      )
+    )
+  ),
+  
+  tabPanel("Expectativas de Vivienda",
+    fluidRow(
+      column(12,
+        div(
+          style = "text-align: center; padding: 50px;",
+          h3("Sección en Desarrollo"),
+          p("El análisis de expectativas de vivienda estará disponible próximamente.")
+        )
+      )
+    )
+  ),
+  
+  tabPanel("Antecedentes Penales",
+    fluidRow(
+      column(12,
+        div(
+          style = "text-align: center; padding: 50px;",
+          h3("Sección en Desarrollo"),
+          p("El análisis de antecedentes penales estará disponible próximamente.")
+        )
+      )
+    )
+  )
+)
+
+# Server logic
+server <- function(input, output, session) {
+  # Navigation observers
+  observeEvent(input$goto_section1, {
+    updateNavbarPage(session, "Análisis del Sistema Penitenciario",
+                    selected = "Antecedentes Familiares")
+  })
+  
+  observeEvent(input$goto_section8, {
+    updateNavbarPage(session, "Análisis del Sistema Penitenciario",
+                    selected = "Historial Laboral")
+  })
+  
+  observeEvent(input$goto_section11, {
+    updateNavbarPage(session, "Análisis del Sistema Penitenciario",
+                    selected = "Acceso a Educación")
+  })
+  
+  # Implement existing server logic for sections 1, 8, and 11 here
+  # [Previous server code for sections 1, 8, and 11 goes here]
+  
+  # Placeholder for future sections
+  # [Server logic for sections 12, 13, and 15 will go here]
+}
+
+# Run the app
+shinyApp(ui = ui, server = server)
+```
+
+
+---
 # Seccion 1
 
 ```{r librerias}
