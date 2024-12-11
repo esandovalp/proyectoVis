@@ -571,518 +571,524 @@ server <- function(input, output, session) {
 shinyApp(ui = ui, server = server)
 ```
 ---
-# Seccion 2 y 3 
+# Seccion 8: 
 
-```{R}
-ui <- fluidPage(
-  theme = bslib::bs_theme(version = 4),
-  titlePanel("Marital Status & Networks Analysis - ENPOL 2021"),
-  
-  tabsetPanel(
-    # Marital Status Tab
-    tabPanel("Marital Status",
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("marital_group", "Compare by:",
-                     choices = c("Gender" = "SEXO",
-                               "Indigenous Language" = "P1_31_1",
-                               "Self-Identification" = "P1_32")),
-          hr(),
-          helpText("Note: Gender (1 = Male, 2 = Female)")
-        ),
-        mainPanel(
-          plotOutput("marital_status_plot", height = "400px"),
-          DTOutput("marital_status_table")
-        )
-      )
-    ),
-    
-    # Networks Tab
-    tabPanel("Networks",
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("network_comparison", "Compare by:",
-                     choices = c("Gender" = "SEXO",
-                               "Indigenous Language" = "P1_31_1",
-                               "Self-Identification" = "P1_32")),
-          selectInput("visit_type", "Visit Analysis:",
-                     choices = c("Visit Frequency", "Items Brought", "Expenditure"))
-        ),
-        mainPanel(
-          plotOutput("visit_analysis_plot", height = "400px"),
-          plotOutput("visitor_breakdown", height = "300px"),
-          DTOutput("visit_summary_table")
-        )
-      )
-    )
-  )
-)
-
+```{R seccion8}
 server <- function(input, output, session) {
-  enpol_data <- reactive({
-    read.csv("../data/ENPOL2021_2_3.csv", encoding = "latin1")
-  })
+  # Load data once at startup
+  emp_data <- read.csv("../data/ENPOL2021_2_3.csv", encoding = "latin1")
+  soc_data <- read.csv("../data/ENPOL2021_SOC.csv", encoding = "latin1")
   
-  # Marital Status Analysis
-  output$marital_status_plot <- renderPlot({
-    req(enpol_data())
-    data <- enpol_data()
+  # Filter data
+  filtered_data <- reactive({
+    result <- emp_data
     
-    data %>%
-      mutate(marital_status = case_when(
-        P3_1 == 2 ~ "Union",
-        P3_1 == 3 ~ "Married",
-        P3_1 %in% c(5,6,7) ~ "Single",
-        TRUE ~ "Other"
-      )) %>%
-      group_by(!!sym(input$marital_group), marital_status) %>%
-      summarise(count = n(), .groups = "drop") %>%
-      ggplot(aes(x = !!sym(input$marital_group), 
-                 y = count, 
-                 fill = marital_status)) +
-      geom_bar(stat = "identity", position = "dodge") +
-      labs(title = "Distribution of Marital Status",
-           x = "Group",
-           y = "Count",
-           fill = "Marital Status") +
-      theme_minimal()
-  })
-  
-  # Networks Analysis
-  output$visit_analysis_plot <- renderPlot({
-    req(enpol_data())
-    data <- enpol_data()
-    
-    if(input$visit_type == "Visit Frequency") {
-      data %>%
-        group_by(!!sym(input$network_comparison)) %>%
-        summarise(
-          receives_visits = mean(P3_2 == 1, na.rm = TRUE)
-        ) %>%
-        ggplot(aes(x = factor(!!sym(input$network_comparison)), 
-                   y = receives_visits)) +
-        geom_bar(stat = "identity", fill = "steelblue") +
-        scale_y_continuous(labels = percent) +
-        labs(title = "Percentage Receiving Visits",
-             x = "Group",
-             y = "Percentage") +
-        theme_minimal()
-    } else if(input$visit_type == "Items Brought") {
-      data %>%
-        select(starts_with("P3_2A_")) %>%
-        pivot_longer(everything(),
-                    names_to = "item_type",
-                    values_to = "brought") %>%
-        group_by(item_type) %>%
-        summarise(
-          frequency = mean(brought == 1, na.rm = TRUE)
-        ) %>%
-        ggplot(aes(x = reorder(item_type, -frequency), y = frequency)) +
-        geom_bar(stat = "identity") +
-        scale_y_continuous(labels = percent) +
-        labs(title = "Items Brought During Visits",
-             x = "Item Type",
-             y = "Frequency") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    }
-  })
-  
-  # Summary Tables
-  output$marital_status_table <- renderDT({
-    req(enpol_data())
-    data <- enpol_data()
-    
-    data %>%
-      group_by(!!sym(input$marital_group)) %>%
-      summarise(
-        Total = n(),
-        Married = sum(P3_1 == 3, na.rm = TRUE),
-        Union = sum(P3_1 == 2, na.rm = TRUE),
-        Single = sum(P3_1 %in% c(5,6,7), na.rm = TRUE)
-      ) %>%
-      datatable(options = list(pageLength = 10))
-  })
-}
-
-shinyApp(ui=ui, server=server)
-```
----
-# Seccion 4
-
-```{R}
-ui <- fluidPage(
-  theme = bslib::bs_theme(version = 4),
-  titlePanel("Motherhood Analysis - ENPOL 2021"),
-  
-  tabsetPanel(
-    tabPanel("Motherhood Status",
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("motherhood_group", "Compare by:",
-                     choices = c("Gender" = "SEXO",
-                               "Indigenous Language" = "P1_31_1",
-                               "Self-Identification" = "P1_32")),
-          selectInput("marital_filter", "Filter by Marital Status:",
-                     choices = c("All", "Single", "Married", "Union"))
-        ),
-        mainPanel(
-          plotOutput("motherhood_plot", height = "400px"),
-          DTOutput("motherhood_table")
-        )
-      )
-    ),
-    
-    tabPanel("Child Care",
-      sidebarLayout(
-        sidebarPanel(
-          checkboxGroupInput("care_options", "Select Care Options:",
-                           choices = c("Grandparents" = "P4_3C_01",
-                                     "Other Relatives" = "P4_3C_02",
-                                     "Friends" = "P4_3C_03",
-                                     "Institution" = "P4_3C_04")),
-          selectInput("child_age_filter", "Child Age Group:",
-                     choices = c("All", "Under 18", "Over 18"))
-        ),
-        mainPanel(
-          plotOutput("childcare_plot", height = "400px"),
-          plotOutput("childcare_breakdown", height = "300px")
-        )
-      )
-    )
-  )
-)
-
-server <- function(input, output, session) {
-  enpol_data <- reactive({
-    read.csv("../data/ENPOL2021_4.csv", encoding = "latin1")
-  })
-  
-  # Motherhood Status Analysis
-  output$motherhood_plot <- renderPlot({
-    req(enpol_data())
-    data <- enpol_data()
-    
-    filtered_data <- data
-    if(input$marital_filter != "All") {
-      filtered_data <- filter(data, P4_3 == case_when(
-        input$marital_filter == "Single" ~ 1,
-        input$marital_filter == "Married" ~ 2,
-        input$marital_filter == "Union" ~ 3
-      ))
+    if (input$population_filter == "women") {
+      result <- result[result$SEXO == "2", ]
+    } else if (input$population_filter == "indigenous") {
+      indigenous_ids <- soc_data$ID_PER[soc_data$P1_12 == "1"]
+      result <- result[result$SEXO == "2" & result$ID_PER %in% indigenous_ids, ]
+    } else if (input$population_filter == "afro") {
+      afro_ids <- soc_data$ID_PER[soc_data$P1_15 %in% c("1", "2")]
+      result <- result[result$SEXO == "2" & result$ID_PER %in% afro_ids, ]
     }
     
-    filtered_data %>%
-      group_by(!!sym(input$motherhood_group)) %>%
-      summarise(
-        has_children = mean(P4_3 == 1, na.rm = TRUE),
-        no_children = mean(P4_3 == 2, na.rm = TRUE)
-      ) %>%
-      pivot_longer(cols = c(has_children, no_children),
-                  names_to = "parent_status",
-                  values_to = "percentage") %>%
-      ggplot(aes(x = factor(!!sym(input$motherhood_group)), 
-                 y = percentage,
-                 fill = parent_status)) +
-      geom_bar(stat = "identity", position = "dodge") +
-      scale_y_continuous(labels = percent) +
-      labs(title = "Motherhood Status Distribution",
-           x = "Group",
-           y = "Percentage",
-           fill = "Status") +
-      theme_minimal()
+    result
   })
   
-  # Child Care Analysis
-  output$childcare_plot <- renderPlot({
-    req(enpol_data(), input$care_options)
-    data <- enpol_data()
+  # Employment Status Plot (working version remains unchanged)
+  output$status_plot <- renderPlot({
+    df <- filtered_data()
     
-    data %>%
-      select(all_of(input$care_options)) %>%
-      pivot_longer(everything(),
-                  names_to = "caregiver",
-                  values_to = "response") %>%
-      group_by(caregiver) %>%
-      summarise(
-        percentage = mean(response == 1, na.rm = TRUE)
-      ) %>%
-      ggplot(aes(x = reorder(caregiver, -percentage), y = percentage)) +
-      geom_bar(stat = "identity", fill = "purple") +
-      scale_y_continuous(labels = percent) +
-      labs(title = "Child Care Arrangements",
-           x = "Caregiver Type",
-           y = "Percentage") +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  })
-  
-  # Summary Table
-  output$motherhood_table <- renderDT({
-    req(enpol_data())
-    data <- enpol_data()
-    
-    data %>%
-      group_by(!!sym(input$motherhood_group)) %>%
-      summarise(
-        Total = n(),
-        Has_Children = sum(P4_3 == 1, na.rm = TRUE),
-        No_Children = sum(P4_3 == 2, na.rm = TRUE),
-        Average_Children = mean(P4_3B_H, na.rm = TRUE)
-      ) %>%
-      datatable(options = list(pageLength = 10))
-  })
-}
-
-shinyApp(ui = ui, server = server)
-```
----
-# Seccion 5
-
-```{R}
-ui <- fluidPage(
-  theme = bslib::bs_theme(version = 4),
-  titlePanel("Caregiving Analysis - ENPOL 2021"),
-  
-  tabsetPanel(
-    tabPanel("Support Analysis",
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("support_group", "Compare by:",
-                     choices = c("Gender" = "SEXO",
-                               "Indigenous Language" = "P1_31_1",
-                               "Self-Identification" = "P1_32")),
-          checkboxGroupInput("support_types", "Types of Support:",
-                           choices = c("Financial" = "P5_2_1",
-                                     "Emotional" = "P5_2_2",
-                                     "Physical" = "P5_2_3",
-                                     "Medical" = "P5_2_4"))
-        ),
-        mainPanel(
-          plotOutput("support_plot", height = "400px"),
-          DTOutput("support_table")
-        )
-      )
-    ),
-    
-    tabPanel("Mother Support",
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("mother_filter", "Filter:",
-                     choices = c("All Women", "Mothers Only")),
-          selectInput("support_metric", "Analysis Type:",
-                     choices = c("Support Type Distribution", 
-                               "Support Duration",
-                               "Support Frequency"))
-        ),
-        mainPanel(
-          plotOutput("mother_support_plot", height = "400px"),
-          plotOutput("support_details", height = "300px")
-        )
+    status_df <- data.frame(
+      status = c("Trabajaban", "No Trabajaban", "Sin Respuesta"),
+      count = c(
+        sum(!is.na(df$P2_10) & df$P2_10 != "97", na.rm = TRUE),
+        sum(df$P2_10 == "97", na.rm = TRUE),
+        sum(is.na(df$P2_10))
       )
     )
-  )
-)
-
-server <- function(input, output, session) {
-  enpol_data <- reactive({
-    read.csv("../data/ENPOL2021_5.csv", encoding = "latin1")
-  })
-  
-  # Support Analysis
-  output$support_plot <- renderPlot({
-    req(enpol_data(), input$support_types)
-    data <- enpol_data()
+    status_df$percentage <- status_df$count / sum(status_df$count)
     
-    data %>%
-      select(SEXO, all_of(input$support_types)) %>%
-      pivot_longer(cols = -SEXO,
-                  names_to = "support_type",
-                  values_to = "provided") %>%
-      group_by(SEXO, support_type) %>%
-      summarise(
-        percentage = mean(provided == 1, na.rm = TRUE),
-        .groups = "drop"
-      ) %>%
-      ggplot(aes(x = support_type, y = percentage, fill = factor(SEXO))) +
-      geom_bar(stat = "identity", position = "dodge") +
-      scale_y_continuous(labels = percent) +
-      scale_fill_discrete(labels = c("Male", "Female")) +
-      labs(title = "Support Provided Before Incarceration",
-           x = "Type of Support",
-           y = "Percentage",
-           fill = "Gender") +
+    ggplot(status_df, aes(x = status, y = percentage, fill = status)) +
+      geom_col() +
+      geom_text(aes(label = scales::percent(percentage, accuracy = 0.1)),
+                position = position_stack(vjust = 1.1)) +
+      scale_y_continuous(labels = scales::percent) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(title = "Estado Laboral Previo a la Detención",
+           subtitle = case_when(
+             input$population_filter == "all" ~ "Población Total",
+             input$population_filter == "women" ~ "Mujeres",
+             input$population_filter == "indigenous" ~ "Mujeres Lengua Indígena",
+             input$population_filter == "afro" ~ "Mujeres Autoadscripción Indígena/Afro"
+           ),
+           x = "",
+           y = "Porcentaje") +
       theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      theme(
+        legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12),
+        axis.text = element_text(size = 12)
+      )
   })
   
-  # Mother Support Analysis
-  output$mother_support_plot <- renderPlot({
-    req(enpol_data())
-    data <- enpol_data()
+  # Define a function to categorize occupations
+  categorize_occupation <- function(occupation) {
+    occupation <- tolower(occupation)  # Convert to lowercase for easier matching
     
-    filtered_data <- if(input$mother_filter == "Mothers Only") {
-      filter(data, P5_1 == 1)  # Assuming P5_1 indicates motherhood status
+    if (grepl("comercio|comerciante|tienda", occupation)) {
+      return("Commerce")
+    } else if (grepl("campo|agricultor|cosecha|agricola|piña|limones", occupation)) {
+      return("Agriculture")
+    } else if (grepl("construccion|albañil|mantenimiento", occupation)) {
+      return("Construction")
+    } else if (grepl("empleado|trabajador|jefe", occupation)) {
+      return("Services")
+    } else if (grepl("mecánico|carpintero|pintor", occupation)) {
+      return("Skilled Trades")
+    } else if (grepl("seguridad|policía|guardia", occupation)) {
+      return("Security")
+    } else if (grepl("no trabaja|no responde", occupation)) {
+      return("Unemployed")
     } else {
-      data
+      return("Other")
     }
-    
-    if(input$support_metric == "Support Type Distribution") {
-      filtered_data %>%
-        select(starts_with("P5_2_")) %>%
-        pivot_longer(everything(),
-                    names_to = "support_type",
-                    values_to = "provided") %>%
-        group_by(support_type) %>%
-        summarise(
-          percentage = mean(provided == 1, na.rm = TRUE)
-        ) %>%
-        ggplot(aes(x = reorder(support_type, -percentage), y = percentage)) +
-        geom_bar(stat = "identity", fill = "darkgreen") +
-        scale_y_continuous(labels = percent) +
-        labs(title = "Types of Support Provided",
-             x = "Support Type",
-             y = "Percentage") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    }
-  })
+  }
   
-  # Support Summary Table
-  output$support_table <- renderDT({
-    req(enpol_data())
-    data <- enpol_data()
+  # Occupations Plot
+  output$occupations_plot <- renderPlot({
+    df <- filtered_data()
     
-    summary_table <- data %>%
-      group_by(!!sym(input$support_group)) %>%
-      summarise(
-        Total = n(),
-        Provided_Support = sum(P5_1 == 1, na.rm = TRUE),
-        Financial_Support = sum(P5_2_1 == 1, na.rm = TRUE),
-        Emotional_Support = sum(P5_2_2 == 1, na.rm = TRUE)
-      )
+    # Debugging: Check filtered data structure
+    if (nrow(df) == 0 || is.null(df$P2_10)) {
+      plot.new()
+      text(0.5, 0.5, "No data available for occupations", cex = 1.2)
+      return()
+    }
     
-    datatable(summary_table,
-              options = list(pageLength = 10),
-              rownames = FALSE)
+    # Apply categorization
+    df$Category <- sapply(as.character(df$P2_10), categorize_occupation)
+    
+    # Debugging: Check categories
+    if (all(is.na(df$Category))) {
+      plot.new()
+      text(0.5, 0.5, "No valid categories for occupations", cex = 1.2)
+      return()
+    }
+    
+    # Aggregate data
+    category_counts <- table(df$Category)
+    percentages <- as.numeric(category_counts) / sum(category_counts)
+    names(percentages) <- names(category_counts)
+    
+    # Sort in descending order
+    percentages <- sort(percentages, decreasing = TRUE)
+    
+    # Adjust margins for labels
+    par(mar = c(5, 15, 4, 2))
+    
+    # Create plot
+    plot(
+      percentages,
+      seq_along(percentages),
+      type = "n",
+      xlab = "Porcentaje del Total",
+      ylab = "",
+      main = "Distribución de Ocupaciones",
+      axes = FALSE,
+      xlim = c(0, max(percentages) * 1.3),
+      ylim = c(0.5, length(percentages) + 0.5)
+    )
+    
+    # Add axes and labels
+    axis(1)
+    axis(2, at = seq_along(percentages), labels = names(percentages), las = 1, cex.axis = 0.8)
+    
+    # Add lollipop chart
+    segments(0, seq_along(percentages), percentages, seq_along(percentages), col = "#8E44AD", lwd = 2)
+    points(percentages, seq_along(percentages), pch = 16, col = "#8E44AD", cex = 1.5)
+    text(percentages + 0.02, seq_along(percentages), 
+         labels = sprintf("%.1f%% (%d personas)", percentages * 100, as.numeric(category_counts)), 
+         pos = 4, cex = 0.8)
   })
+
+  # Enhanced Income Sources Plot
+  # Income Sources Plot with Fixed Y-Axis Labels
+  output$income_plot <- renderPlot({
+    df <- filtered_data()
+    
+    # Check if data is available
+    if (nrow(df) == 0 || is.null(df$P2_13)) {
+      plot.new()
+      text(0.5, 0.5, "No data available for income sources", cex = 1.2)
+      return()
+    }
+    
+    # Aggregate data correctly and filter out 98, 99 codes
+    income_sources <- df %>%
+      filter(!is.na(P2_13), 
+             !P2_13 %in% c("98", "99")) %>%  # Filter out no sabe/no responde
+      count(P2_13) %>%
+      arrange(desc(n))
+    
+    if (nrow(income_sources) == 0) {
+      plot.new()
+      text(0.5, 0.5, "No data available for income sources", cex = 1.2)
+      return()
+    }
+    
+    # Calculate percentages
+    total_responses <- sum(income_sources$n)
+    income_sources <- income_sources %>%
+      mutate(percentage = n / total_responses)
+    
+    # Define descriptions
+    descriptions <- c(
+        "01" = "Un familiar o amigo(a) me daba dinero",
+        "02" = "Vendía o realizaba algún producto para su venta",
+        "03" = "Ofrecía algún servicio a cambio de un pago",
+        "04" = "Trabajaba en tierras propias o ayudando",
+        "05" = "Recibía apoyo de un programa de gobierno",
+        "06" = "Negocios chuecos, al 'bisne', actividades ilegales",
+        "07" = "Vivía de mis ahorros",
+        "08" = "Otra actividad"
+    )
+    
+    # Create layout with extra space at bottom for legend
+    layout(matrix(c(1,2), nrow=2, ncol=1), heights=c(4,1))
+    
+    # Set up the main plot
+    par(mar = c(5, 8, 4, 8))
+    
+    # Create the base plot
+    plot(income_sources$percentage,
+         seq_along(income_sources$percentage),
+         type = "n",
+         xlab = "Porcentaje del Total",
+         ylab = "",
+         main = "Distribución de Fuentes de Ingreso",
+         axes = FALSE,
+         xlim = c(0, max(income_sources$percentage) * 1.2),
+         ylim = c(0.5, nrow(income_sources) + 0.5))
+    
+    # Add horizontal lines and points
+    segments(0, seq_along(income_sources$percentage), 
+             income_sources$percentage, seq_along(income_sources$percentage), 
+             col = "#2E86C1", 
+             lwd = 2)
+    points(income_sources$percentage, seq_along(income_sources$percentage), 
+           pch = 16, 
+           col = "#2E86C1", 
+           cex = 1.5)
+    
+    # Add x-axis
+    axis(1, at = pretty(c(0, max(income_sources$percentage))), 
+         labels = paste0(pretty(c(0, max(income_sources$percentage))) * 100, "%"))
+    
+    # Add y-axis with codes
+    axis(2, at = seq_along(income_sources$percentage), 
+         labels = sprintf("%02d", as.numeric(income_sources$P2_13)), 
+         las = 2,
+         cex.axis = 0.8)
+    
+    # Add count labels on the right
+    text(income_sources$percentage, 
+         seq_along(income_sources$percentage), 
+         sprintf(" %.1f%% (%d personas)", 
+                 income_sources$percentage * 100, 
+                 income_sources$n),
+         pos = 4,
+         cex = 0.8)
+    
+    # Create legend plot
+    par(mar = c(0, 2, 0, 2))
+    plot.new()
+    plot.window(xlim = c(0, 1), ylim = c(0, 1))
+    
+    # Split descriptions into two columns with more space for text
+    n_desc <- length(descriptions)
+    mid_point <- ceiling(n_desc/2)
+    
+    # First column of descriptions (moved more to the left)
+    text(0.02, seq(0.8, 0.2, length.out = mid_point), 
+         sprintf("%02d - %s", 1:mid_point, descriptions[1:mid_point]),
+         cex = 0.8, pos = 4, adj = 0)
+    
+    # Second column of descriptions (starting closer to middle)
+    text(0.52, seq(0.8, 0.2, length.out = n_desc - mid_point), 
+         sprintf("%02d - %s", (mid_point+1):n_desc, descriptions[(mid_point+1):n_desc]),
+         cex = 0.8, pos = 4, adj = 0)
+    
+  }, height = 600)
 }
 
 shinyApp(ui = ui, server = server)
 ```
+
 ---
-# Sección 6 
+# Seccion 11
 
 ```{R}
+library(shiny)
+library(tidyverse)
+library(DT)
+library(scales)
+
 ui <- fluidPage(
   theme = bslib::bs_theme(version = 4),
-  titlePanel("Motherhood in Prison Analysis - ENPOL 2021"),
+  titlePanel("Análisis de Acceso a la Educación - ENPOL 2021"),
   
-  tabsetPanel(
-    tabPanel("State Distribution",
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("filter_group", "Filter by:",
-                     choices = c("Indigenous Language" = "P1_31_1",
-                               "Self-Identification" = "P1_32")),
-          hr(),
-          helpText("Filters only apply to women in prison")
-        ),
-        mainPanel(
-          plotOutput("state_distribution"),
-          DTOutput("state_summary")
-        )
-      )
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("population_filter", "Filtrar por:",
+                 choices = c("Todos",
+                           "Mujeres",
+                           "Mujeres Lengua Indígena",
+                           "Mujeres Autoadscripción Indígena/Afro")),
+      selectInput("state_filter", "Estado:",
+                 choices = "Campeche")
     ),
     
-    tabPanel("Prison Conditions",
-      sidebarLayout(
-        sidebarPanel(
-          checkboxGroupInput("conditions", "Select Conditions:",
-                           choices = c("Healthcare" = "P6_4_1",
-                                     "Education" = "P6_4_2",
-                                     "Food" = "P6_4_3",
-                                     "Basic Needs" = "P6_4_4"))
-        ),
-        mainPanel(
-          plotOutput("conditions_plot"),
-          plotOutput("conditions_comparison")
-        )
+    mainPanel(
+      tabsetPanel(
+        # Educational Level Tab
+        tabPanel("Nivel Educativo",
+                plotOutput("education_level_plot", height = "600px"),
+                DTOutput("education_level_table")),
+        
+        # Prison Education Tab
+        tabPanel("Educación en Prisión",
+                plotOutput("prison_education_plot", height = "600px"),
+                DTOutput("prison_education_table")),
+        
+        # Dropout Reasons Tab
+        tabPanel("Razones de Abandono",
+                plotOutput("dropout_reasons_plot", height = "600px"),
+                DTOutput("dropout_reasons_table"))
       )
     )
   )
 )
 
 server <- function(input, output, session) {
-  enpol_data <- reactive({
-    read.csv("../data/ENPOL2021_6.csv", encoding = "latin1") %>%
-      filter(SEXO == 2)  # Filter for women only
-  })
-  
-  output$state_distribution <- renderPlot({
-    req(enpol_data())
-    data <- enpol_data()
+  # Load and process data
+  data <- reactive({
+    edu_data <- read.csv("../data/ENPOL2021_SOC.csv", encoding = "latin1")
     
-    data %>%
-      group_by(NOM_ENT) %>%
-      summarise(
-        total_women = n(),
-        with_children = sum(P6_15 == 1, na.rm = TRUE)
+    filtered <- switch(input$population_filter,
+      "Todos" = edu_data,
+      "Mujeres" = edu_data %>% filter(SEXO == "2"),
+      "Mujeres Lengua Indígena" = edu_data %>% 
+        filter(SEXO == "2", P1_12 == "1"),
+      "Mujeres Autoadscripción Indígena/Afro" = edu_data %>% 
+        filter(SEXO == "2", P1_15 %in% c("1", "2"))
+    )
+    
+    filtered %>% filter(NOM_ENT == "Campeche")
+  })
+
+  output$education_level_plot <- renderPlot({
+    req(data())
+    
+    # Define education levels mapping
+    education_levels <- c(
+      "0" = "Sin educación",
+      "1" = "Preescolar",
+      "2" = "Primaria", 
+      "3" = "Secundaria",
+      "4" = "Carrera técnica (secundaria)",
+      "5" = "Normal básica",
+      "6" = "Preparatoria",
+      "7" = "Carrera técnica (preparatoria)", 
+      "8" = "Licenciatura",
+      "9" = "Posgrado",
+      "98" = "No sabe",
+      "99" = "No responde"
+    )
+    
+    plot_data <- data() %>%
+      count(P1_18_N) %>%  # Changed from P1_18 to P1_18_N
+      mutate(
+        level = case_when(
+          as.character(P1_18_N) %in% names(education_levels) ~ education_levels[as.character(P1_18_N)],
+          TRUE ~ "No especificado"
+        ),
+        percentage = n/sum(n) * 100
       ) %>%
-      filter(with_children > 0) %>%
-      ggplot(aes(x = reorder(NOM_ENT, with_children), y = with_children)) +
-      geom_bar(stat = "identity", fill = "darkviolet") +
+      arrange(desc(percentage))
+    
+    ggplot(plot_data, aes(x = reorder(level, percentage), y = percentage)) +
+      geom_bar(stat = "identity", fill = "#2E86C1", width = 0.7) +
+      geom_text(aes(label = sprintf("%.1f%%", percentage)),
+                hjust = -0.2) +
+      scale_y_continuous(limits = c(0, max(plot_data$percentage) * 1.2)) +
       coord_flip() +
-      labs(title = "Women Living with Children in Prison by State",
-           x = "State",
-           y = "Number of Women") +
-      theme_minimal()
-  })
-  
-  output$conditions_plot <- renderPlot({
-    req(enpol_data(), input$conditions)
-    data <- enpol_data()
-    
-    data %>%
-      select(all_of(input$conditions)) %>%
-      pivot_longer(everything(),
-                  names_to = "condition",
-                  values_to = "rating") %>%
-      group_by(condition) %>%
-      summarise(
-        adequate = mean(rating == 1, na.rm = TRUE),
-        inadequate = mean(rating == 2, na.rm = TRUE)
-      ) %>%
-      pivot_longer(cols = c(adequate, inadequate),
-                  names_to = "assessment",
-                  values_to = "percentage") %>%
-      ggplot(aes(x = condition, y = percentage, fill = assessment)) +
-      geom_bar(stat = "identity", position = "dodge") +
-      scale_y_continuous(labels = percent) +
-      labs(title = "Prison Conditions Assessment",
-           x = "Condition Type",
-           y = "Percentage",
-           fill = "Assessment") +
+      labs(
+        title = "Distribución por Nivel Educativo",
+        subtitle = paste("Filtro:", input$population_filter),
+        x = "",
+        y = "Porcentaje"
+      ) +
       theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12),
+        axis.text = element_text(size = 11),
+        axis.title = element_text(size = 12)
+      )
   })
-  
-  output$state_summary <- renderDT({
-    req(enpol_data())
-    data <- enpol_data()
+
+  # Prison Education Plot
+  output$prison_education_plot <- renderPlot({
+    req(data())
     
-    summary_table <- data %>%
-      group_by(NOM_ENT) %>%
-      summarise(
-        Total_Women = n(),
-        With_Children = sum(P6_15 == 1, na.rm = TRUE),
-        Percentage = round(With_Children/Total_Women * 100, 1)
+    plot_data <- data() %>%
+      count(P1_19) %>%
+      mutate(
+        status = case_when(
+          P1_19 == "1" ~ "Estudiando",
+          P1_19 == "2" ~ "No estudiando",
+          TRUE ~ "Sin información"
+        ),
+        percentage = n/sum(n) * 100
+      )
+    
+    ggplot(plot_data, aes(x = status, y = percentage, fill = status)) +
+      geom_bar(stat = "identity", width = 0.7) +
+      geom_text(aes(label = sprintf("%.1f%%", percentage)),
+                position = position_stack(vjust = 0.5),
+                size = 5) +
+      scale_fill_manual(values = c("#2E86C1", "#E74C3C", "#95A5A6")) +
+      labs(
+        title = "Participación en Programas Educativos",
+        subtitle = paste("Filtro:", input$population_filter),
+        x = "",
+        y = "Porcentaje"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12),
+        legend.position = "none",
+        axis.text = element_text(size = 11),
+        axis.title = element_text(size = 12)
+      )
+  })
+
+  # Dropout Reasons Plot
+  output$dropout_reasons_plot <- renderPlot({
+    req(data())
+    
+    reasons <- c(
+      "01" = "No quise/No me interesa",
+      "02" = "Dificultad académica",
+      "03" = "Otras actividades",
+      "04" = "Actividades ilegales",
+      "05" = "Falta de dinero",
+      "06" = "Expulsión",
+      "07" = "Trabajo",
+      "08" = "Falta de documentos",
+      "09" = "Matrimonio/Embarazo",
+      "10" = "Detención",
+      "11" = "Salida de cárcel",
+      "12" = "Labores del hogar",
+      "13" = "Salud",
+      "14" = "Adicciones"
+    )
+    
+    plot_data <- data() %>%
+      count(P1_21) %>%
+      mutate(
+        reason = reasons[P1_21],
+        percentage = n/sum(n) * 100
       ) %>%
-      arrange(desc(With_Children))
+      arrange(desc(percentage))
     
-    datatable(summary_table,
-              options = list(pageLength = 10),
-              rownames = FALSE)
+    ggplot(plot_data, aes(x = reorder(reason, percentage), y = percentage)) +
+      geom_bar(stat = "identity", fill = "#2E86C1", width = 0.7) +
+      geom_text(aes(label = sprintf("%.1f%%", percentage)),
+                hjust = -0.2) +
+      scale_y_continuous(limits = c(0, max(plot_data$percentage) * 1.2)) +
+      coord_flip() +
+      labs(
+        title = "Razones para Abandonar los Estudios",
+        subtitle = paste("Filtro:", input$population_filter),
+        x = "",
+        y = "Porcentaje"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12),
+        axis.text = element_text(size = 11),
+        axis.title = element_text(size = 12)
+      )
+  })
+
+  # Enhanced table outputs
+  output$education_level_table <- renderDT({
+    req(data())
+    
+    data() %>%
+      count(P1_18) %>%
+      mutate(
+        Porcentaje = n/sum(n) * 100,
+        Porcentaje = sprintf("%.1f%%", Porcentaje)
+      ) %>%
+      datatable(
+        options = list(
+          pageLength = 10,
+          dom = 't',
+          ordering = FALSE
+        ),
+        rownames = FALSE
+      )
+  })
+
+  output$prison_education_table <- renderDT({
+    req(data())
+    
+    data() %>%
+      count(P1_19) %>%
+      mutate(
+        Status = case_when(
+          P1_19 == "1" ~ "Estudiando",
+          P1_19 == "2" ~ "No estudiando",
+          TRUE ~ "Sin información"
+        ),
+        Porcentaje = n/sum(n) * 100,
+        Porcentaje = sprintf("%.1f%%", Porcentaje)
+      ) %>%
+      select(Status, n, Porcentaje) %>%
+      datatable(
+        options = list(
+          pageLength = 10,
+          dom = 't',
+          ordering = FALSE
+        ),
+        rownames = FALSE
+      )
+  })
+
+  output$dropout_reasons_table <- renderDT({
+    req(data())
+    
+    data() %>%
+      count(P1_21) %>%
+      mutate(
+        Porcentaje = n/sum(n) * 100,
+        Porcentaje = sprintf("%.1f%%", Porcentaje)
+      ) %>%
+      datatable(
+        options = list(
+          pageLength = 10,
+          dom = 't',
+          ordering = FALSE
+        ),
+        rownames = FALSE
+      )
   })
 }
 
