@@ -1031,12 +1031,34 @@ server <- function(input, output, session) {
   output$education_level_table <- renderDT({
     req(data())
     
+    # Define education levels mapping
+    education_levels <- c(
+      "0" = "Sin educación",
+      "1" = "Preescolar",
+      "2" = "Primaria", 
+      "3" = "Secundaria",
+      "4" = "Carrera técnica (secundaria)",
+      "5" = "Normal básica",
+      "6" = "Preparatoria",
+      "7" = "Carrera técnica (preparatoria)", 
+      "8" = "Licenciatura",
+      "9" = "Posgrado",
+      "98" = "No sabe",
+      "99" = "No responde"
+    )
+    
     data() %>%
-      count(P1_18) %>%
+      count(P1_18_N) %>%
       mutate(
-        Porcentaje = n/sum(n) * 100,
-        Porcentaje = sprintf("%.1f%%", Porcentaje)
+        Nivel = case_when(
+          as.character(P1_18_N) %in% names(education_levels) ~ education_levels[as.character(P1_18_N)],
+          TRUE ~ "No especificado"
+        ),
+        Cantidad = n,
+        Porcentaje = sprintf("%.1f%%", n/sum(n) * 100)
       ) %>%
+      select(Nivel, Cantidad, Porcentaje) %>%
+      arrange(desc(Cantidad)) %>%
       datatable(
         options = list(
           pageLength = 10,
