@@ -9,7 +9,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ---
 # Dashboard Final
-```{R}
+
+```{R final}
 library(shiny)
 library(tidyverse)
 library(DT)
@@ -18,12 +19,13 @@ library(leaflet)
 library(bslib)
 library(leaflet.providers)
 
-# UI Definition
+# UI 
 ui <- navbarPage(
+  id = "mainNavbar",  # Add this ID for navigation
   title = "Análisis del Sistema Penitenciario",
   theme = bs_theme(version = 4),
   
-  # Introduction Page
+  # Introduction Page with Fixed Navigation
   tabPanel("Inicio",
     fluidRow(
       column(12, 
@@ -41,11 +43,11 @@ ui <- navbarPage(
           style = "padding: 20px;",
           h3("Secciones del Análisis"),
           
-          # Story Flow Navigation Cards
+          # Navigation Cards with Fixed Links
           div(
             style = "display: flex; flex-wrap: wrap; justify-content: space-around;",
             
-            # Section 1: Family Background
+            # Section 1: Family Background card
             div(
               class = "card",
               style = "width: 18rem; margin: 10px;",
@@ -53,11 +55,13 @@ ui <- navbarPage(
                 class = "card-body",
                 h5(class = "card-title", "1. Antecedentes Familiares"),
                 p(class = "card-text", "Análisis de la convivencia familiar y situaciones de violencia en la infancia."),
-                actionLink("goto_section1", "Explorar →", class = "btn btn-primary")
+                actionButton("goto_section1", "Explorar",
+                            class = "btn btn-primary w-100",
+                            style = "margin-top: 10px;")
               )
             ),
             
-            # Section 8: Work History
+            # Section 8: Work History card
             div(
               class = "card",
               style = "width: 18rem; margin: 10px;",
@@ -65,11 +69,13 @@ ui <- navbarPage(
                 class = "card-body",
                 h5(class = "card-title", "8. Historial Laboral"),
                 p(class = "card-text", "Análisis del empleo y fuentes de ingresos previos a la detención."),
-                actionLink("goto_section8", "Explorar →", class = "btn btn-primary")
+                actionButton("goto_section8", "Explorar",
+                            class = "btn btn-primary w-100",
+                            style = "margin-top: 10px;")
               )
             ),
             
-            # Section 11: Education Access
+            # Section 11: Education Access card
             div(
               class = "card",
               style = "width: 18rem; margin: 10px;",
@@ -77,196 +83,1081 @@ ui <- navbarPage(
                 class = "card-body",
                 h5(class = "card-title", "11. Acceso a Educación"),
                 p(class = "card-text", "Análisis de niveles educativos y razones de abandono escolar."),
-                actionLink("goto_section11", "Explorar →", class = "btn btn-primary")
+                actionButton("goto_section11", "Explorar",
+                            class = "btn btn-primary w-100",
+                            style = "margin-top: 10px;")
               )
             ),
             
-            # Section 12: Housing (Placeholder)
-            div(
-              class = "card",
-              style = "width: 18rem; margin: 10px; opacity: 0.7;",
-              div(
-                class = "card-body",
-                h5(class = "card-title", "12. Vivienda"),
-                p(class = "card-text", "Análisis de condiciones de vivienda previas a la detención."),
-                actionLink("goto_section12", "Próximamente →", class = "btn btn-secondary")
-              )
-            ),
             
-            # Section 13: Housing Expectations (Placeholder)
+            # Replace the Section 13 card in the homepage with:
             div(
               class = "card",
-              style = "width: 18rem; margin: 10px; opacity: 0.7;",
+              style = "width: 18rem; margin: 10px;",
               div(
                 class = "card-body",
                 h5(class = "card-title", "13. Expectativas de Vivienda"),
                 p(class = "card-text", "Análisis de perspectivas de vivienda post-liberación."),
-                actionLink("goto_section13", "Próximamente →", class = "btn btn-secondary")
+                actionButton("goto_section13", "Explorar",
+                            class = "btn btn-primary w-100",
+                            style = "margin-top: 10px;")
               )
             ),
             
-            # Section 15: Criminal Records (Placeholder)
-            div(
-              class = "card",
-              style = "width: 18rem; margin: 10px; opacity: 0.7;",
-              div(
-                class = "card-body",
-                h5(class = "card-title", "15. Antecedentes Penales"),
-                p(class = "card-text", "Análisis de historiales criminales previos."),
-                actionLink("goto_section15", "Próximamente →", class = "btn btn-secondary")
-              )
-            )
           )
         )
       )
     )
   ),
   
-  # Section 1: Family Background (Using existing code)
+  # Section 1: Family Background
   tabPanel("Antecedentes Familiares",
     sidebarLayout(
       sidebarPanel(
         selectInput("population_filter", "Filtrar por:",
-                   choices = c("Todos",
-                             "Mujeres",
-                             "Mujeres Lengua Indígena",
-                             "Mujeres Autoadscripción Indígena/Afro")),
-        selectInput("state_filter", "Estado:",
-                   choices = "Campeche")
+          choices = c("Todos", "Mujeres", "Mujeres Lengua Indígena", "Mujeres Autoadscripción Indígena/Afro")),
+        selectInput("state_filter", "Estado:", choices = "Campeche")
       ),
       mainPanel(
         tabsetPanel(
           tabPanel("Convivencia",
-                  plotOutput("living_situation_plot"),
-                  DTOutput("living_situation_table")),
+            plotOutput("living_situation_plot"),
+            DTOutput("living_situation_table")),
           tabPanel("Violencia/Precariedad",
-                  plotOutput("violence_plot"),
-                  DTOutput("violence_table")),
+            plotOutput("violence_plot"),
+            DTOutput("violence_table")),
           tabPanel("Percepción de Seguridad",
-                  plotOutput("security_plot"),
-                  DTOutput("security_table"))
+            plotOutput("security_plot"),
+            DTOutput("security_table"))
         )
       )
     )
   ),
   
-  # Section 8: Work History (Using existing code)
+  # Section 8: Work History
   tabPanel("Historial Laboral",
     titlePanel("Análisis de Empleo"),
     sidebarLayout(
       sidebarPanel(
-        selectInput("work_filter", "Población:",
-                   choices = c("all" = "all",
-                             "women" = "women",
-                             "indigenous" = "indigenous",
-                             "afro" = "afro"))
+        selectInput("work_filter", "Filtrar por:",
+          choices = c("Todos" = "all", "Mujeres" = "women", "Mujeres Lengua Indígena" = "indigenous", "Mujeres Autoadscripción Indígena/Afro" = "afro"))
       ),
       mainPanel(
         tabsetPanel(
-          tabPanel("Estado Laboral", plotOutput("status_plot")),
-          tabPanel("Ocupaciones", plotOutput("occupations_plot")),
-          tabPanel("Fuentes de Ingreso", plotOutput("income_plot"))
+          tabPanel("Estado Laboral", 
+            plotOutput("status_plot"),
+            tags$div(
+              style = "margin-top: 20px;",
+              helpText("Distribución de la situación laboral previa a la detención")
+            )),
+          tabPanel("Ocupaciones", 
+            plotOutput("occupations_plot"),
+            tags$div(
+              style = "margin-top: 20px;",
+              helpText("Categorización de ocupaciones principales")
+            ))
         )
       )
     )
   ),
   
-  # Section 11: Education Access (Using existing code)
+  # Section 11: Education Access
   tabPanel("Acceso a Educación",
     sidebarLayout(
       sidebarPanel(
         selectInput("edu_population_filter", "Filtrar por:",
-                   choices = c("Todos",
-                             "Mujeres",
-                             "Mujeres Lengua Indígena",
-                             "Mujeres Autoadscripción Indígena/Afro")),
-        selectInput("edu_state_filter", "Estado:",
-                   choices = "Campeche")
+          choices = c("Todos", "Mujeres", "Mujeres Lengua Indígena", "Mujeres Autoadscripción Indígena/Afro")),
+        selectInput("edu_state_filter", "Estado:", choices = "Campeche")
       ),
       mainPanel(
         tabsetPanel(
           tabPanel("Nivel Educativo",
-                  plotOutput("education_level_plot"),
-                  DTOutput("education_level_table")),
+            plotOutput("education_level_plot"),
+            DTOutput("education_level_table")),
           tabPanel("Educación en Prisión",
-                  plotOutput("prison_education_plot"),
-                  DTOutput("prison_education_table")),
+            plotOutput("prison_education_plot"),
+            DTOutput("prison_education_table")),
           tabPanel("Razones de Abandono",
-                  plotOutput("dropout_reasons_plot"),
-                  DTOutput("dropout_reasons_table"))
+            plotOutput("dropout_reasons_plot"),
+            DTOutput("dropout_reasons_table"))
         )
       )
     )
   ),
   
-  # Placeholder panels for future sections
-  tabPanel("Vivienda",
-    fluidRow(
-      column(12,
-        div(
-          style = "text-align: center; padding: 50px;",
-          h3("Sección en Desarrollo"),
-          p("El análisis de condiciones de vivienda estará disponible próximamente.")
-        )
-      )
-    )
-  ),
-  
-  tabPanel("Expectativas de Vivienda",
-    fluidRow(
-      column(12,
-        div(
-          style = "text-align: center; padding: 50px;",
-          h3("Sección en Desarrollo"),
-          p("El análisis de expectativas de vivienda estará disponible próximamente.")
-        )
-      )
-    )
-  ),
-  
-  tabPanel("Antecedentes Penales",
-    fluidRow(
-      column(12,
-        div(
-          style = "text-align: center; padding: 50px;",
-          h3("Sección en Desarrollo"),
-          p("El análisis de antecedentes penales estará disponible próximamente.")
+# Expectativas de Vivienda
+tabPanel("Expectativas de Vivienda",
+  titlePanel("Expectativas de Vivienda Post-Liberación"),
+  sidebarLayout(
+    sidebarPanel(
+      width = 3,
+      selectInput("housing_filter", "Filtrar por:",
+        choices = c("Todos" = "all", 
+                   "Mujeres" = "women", 
+                   "Mujeres Lengua Indígena" = "indigenous", 
+                   "Mujeres Autoadscripción Indígena/Afro" = "afro")),
+      hr(),
+      helpText("Esta sección analiza las expectativas de vivienda de las personas privadas de libertad al momento de su liberación.")
+    ),
+    mainPanel(
+      width = 9,
+      tabsetPanel(
+        type = "tabs",
+        tabPanel("Lugar para Vivir",
+          plotOutput("housing_availability_plot", height = "400px"),
+          DTOutput("housing_availability_table")
+        ),
+        tabPanel("Vivienda Anterior",
+          plotOutput("previous_housing_plot", height = "400px"),
+          DTOutput("previous_housing_table")
         )
       )
     )
   )
+),
+  
 )
 
-# Server logic
+# Server logic implementation
 server <- function(input, output, session) {
   # Navigation observers
   observeEvent(input$goto_section1, {
-    updateNavbarPage(session, "Análisis del Sistema Penitenciario",
-                    selected = "Antecedentes Familiares")
-  })
+    req(input$goto_section1)
+    req(session)
+    message("Attempting navigation to Antecedentes Familiares")
+    updateNavbarPage(session, inputId = "mainNavbar", selected = "Antecedentes Familiares")
+  }, ignoreInit = TRUE)
   
   observeEvent(input$goto_section8, {
-    updateNavbarPage(session, "Análisis del Sistema Penitenciario",
-                    selected = "Historial Laboral")
-  })
+    req(input$goto_section8)
+    req(session)
+    message("Attempting navigation to Historial Laboral")
+    updateNavbarPage(session, inputId = "mainNavbar", selected = "Historial Laboral")
+  }, ignoreInit = TRUE)
   
   observeEvent(input$goto_section11, {
-    updateNavbarPage(session, "Análisis del Sistema Penitenciario",
-                    selected = "Acceso a Educación")
+    req(input$goto_section11)
+    req(session)
+    message("Attempting navigation to Acceso a Educación")
+    updateNavbarPage(session, inputId = "mainNavbar", selected = "Acceso a Educación")
+  }, ignoreInit = TRUE)
+  
+  # Add this navigation observer to the server section (with the other observers):
+observeEvent(input$goto_section13, {
+  req(input$goto_section13)
+  req(session)
+  message("Attempting navigation to Expectativas de Vivienda")
+  updateNavbarPage(session, inputId = "mainNavbar", selected = "Expectativas de Vivienda") 
+}, ignoreInit = TRUE)
+  
+  # Add error handling for navigation
+  onStop(function() {
+    message("Session ended")
   })
   
-  # Implement existing server logic for sections 1, 8, and 11 here
-  # [Previous server code for sections 1, 8, and 11 goes here]
-  
-  # Placeholder for future sections
-  # [Server logic for sections 12, 13, and 15 will go here]
+  # Data Loading ----
+# Add this debug function to your server
+print_data_summary <- function(df, section) {
+  cat("\nData summary for", section, ":\n")
+  cat("Total rows:", nrow(df), "\n")
+  cat("Women:", sum(df$SEXO == "2"), "\n")
+  cat("Indigenous women:", sum(df$SEXO == "2" & df$P1_12 == "1", na.rm = TRUE), "\n")
+  cat("Afro women:", sum(df$SEXO == "2" & df$P1_15 %in% c("1", "2"), na.rm = TRUE), "\n")
 }
+
+# Update the data loading section
+data_main <- reactive({
+  main_data <- read.csv("../data/ENPOL2021_8_9_10_11.csv", encoding = "latin1") %>%
+    mutate(ID_PER = sprintf("%.4f", as.numeric(ID_PER)))
+  
+  soc_data <- read.csv("../data/ENPOL2021_SOC.csv", encoding = "latin1") %>%
+    mutate(
+      ID_PER = sprintf("%.4f", as.numeric(ID_PER)),
+      P1_12 = as.character(P1_12),
+      P1_15 = as.character(P1_15)
+    )
+  
+  emp_data <- read.csv("../data/ENPOL2021_2_3.csv", encoding = "latin1") %>%
+    mutate(ID_PER = sprintf("%.4f", as.numeric(ID_PER)))
+  
+  # Join the datasets
+  main_data <- main_data %>%
+    left_join(soc_data %>% select(ID_PER, P1_12, P1_15), by = "ID_PER")
+  
+  emp_data <- emp_data %>%
+    left_join(soc_data %>% select(ID_PER, P1_12, P1_15), by = "ID_PER")
+  
+  # Print debug information
+  print_data_summary(main_data, "Main data")
+  print_data_summary(emp_data, "Employment data")
+  print_data_summary(soc_data, "Social data")
+  
+  list(
+    main = main_data,
+    soc = soc_data,
+    emp = emp_data
+  )
+})
+  
+  # Section 1: Antecedentes Familiares
+  filtered_data_sec1 <- reactive({
+    req(data_main())
+    df <- data_main()$main
+    
+    result <- switch(input$population_filter,
+      "Todos" = df,
+      "Mujeres" = df %>% filter(SEXO == "2"),
+      "Mujeres Lengua Indígena" = df %>% 
+        filter(SEXO == "2", !is.na(P1_12), P1_12 == "1") %>%
+        {if(nrow(.) == 0) stop("No hay datos disponibles para mujeres con lengua indígena") else .},
+      "Mujeres Autoadscripción Indígena/Afro" = df %>% 
+        filter(SEXO == "2", !is.na(P1_15), P1_15 %in% c("1", "2")))
+    
+    result %>% 
+      filter(NOM_ENT == "Campeche") %>%
+      {if(nrow(.) == 0) stop("No hay datos disponibles para los filtros seleccionados") else .}
+  })
+  
+  # Living Situation Plot
+  output$living_situation_plot <- renderPlot({
+    req(filtered_data_sec1())
+    df <- filtered_data_sec1()
+    
+    plot_data <- df %>%
+      summarise(
+        "Vivía con mamá" = mean(P9_8_1 == "1", na.rm = TRUE),
+        "Vivía con papá" = mean(P9_8_2 == "1", na.rm = TRUE)
+      ) %>%
+      pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
+    
+    ggplot(plot_data, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+      geom_bar(stat = "identity", width = 0.7) +
+      geom_text(aes(label = scales::percent(Porcentaje, accuracy = 0.1)), 
+                position = position_stack(vjust = 0.5)) +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(title = "Convivencia Familiar en la Infancia",
+           subtitle = paste("Filtro:", input$population_filter),
+           y = "Porcentaje") +
+      theme_minimal() +
+      theme(legend.position = "none")
+  })
+  
+  # Violence Plot
+output$violence_plot <- renderPlot({
+  req(filtered_data_sec1())
+  df <- filtered_data_sec1()
+  
+  plot_data <- df %>%
+    summarise(
+      "Presenció violencia" = mean(P9_10_3 == "1", na.rm = TRUE),
+      "Perteneció a pandilla" = mean(P9_10_4 == "1", na.rm = TRUE)
+    ) %>%
+    pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
+  
+  ggplot(plot_data, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+    geom_bar(stat = "identity", width = 0.7) +
+    geom_text(aes(label = scales::percent(Porcentaje, accuracy = 0.1)),
+              position = position_stack(vjust = 0.5),
+              size = 4, fontface = "bold") +
+    scale_y_continuous(labels = scales::percent, limits = c(0, 1),
+                      breaks = seq(0, 1, 0.2)) +
+    scale_fill_brewer(palette = "Set3") +
+    labs(title = "Experiencias de Violencia",
+         subtitle = paste("Filtro:", input$population_filter),
+         y = "Porcentaje",
+         x = "") +
+    theme_minimal() +
+    theme(legend.position = "none")
+})
+
+# Security Plot
+output$security_plot <- renderPlot({
+  req(filtered_data_sec1())
+  df <- filtered_data_sec1()
+  
+  plot_data <- df %>%
+    summarise(
+      "Se sentía seguro" = mean(P9_10_1 == "1", na.rm = TRUE),
+      "Vecinos se preocupaban" = mean(P9_10_2 == "1", na.rm = TRUE)
+    ) %>%
+    pivot_longer(everything(), names_to = "Situación", values_to = "Porcentaje")
+  
+  ggplot(plot_data, aes(x = Situación, y = Porcentaje, fill = Situación)) +
+    geom_bar(stat = "identity", width = 0.7) +
+    geom_text(aes(label = scales::percent(Porcentaje, accuracy = 0.1)),
+              position = position_stack(vjust = 0.5),
+              size = 4, fontface = "bold") +
+    scale_y_continuous(labels = scales::percent, limits = c(0, 1),
+                      breaks = seq(0, 1, 0.2)) +
+    scale_fill_brewer(palette = "Set1") +
+    labs(title = "Percepción de Seguridad",
+         subtitle = paste("Filtro:", input$population_filter),
+         y = "Porcentaje",
+         x = "") +
+    theme_minimal() +
+    theme(legend.position = "none")
+})
+
+  
+# Update the filtered_data_sec8 reactive in your server
+filtered_data_sec8 <- reactive({
+  req(data_main())
+  df <- data_main()$emp
+  
+  result <- switch(input$work_filter,
+    "all" = df,
+    "women" = df %>% filter(SEXO == "2"),
+    "indigenous" = {
+      filtered <- df %>% 
+        filter(SEXO == "2") %>%
+        inner_join(data_main()$soc %>% 
+                    filter(P1_12 == "1") %>% 
+                    select(ID_PER),
+                  by = "ID_PER")
+      if(nrow(filtered) == 0) {
+        return(data.frame())  # Return empty dataframe instead of NULL
+      }
+      filtered
+    },
+    "afro" = df %>% 
+      filter(SEXO == "2") %>%
+      inner_join(data_main()$soc %>% 
+                  filter(P1_15 %in% c("1", "2")) %>% 
+                  select(ID_PER),
+                by = "ID_PER"))
+  
+  result %>% filter(NOM_ENT == "Campeche")
+})
+
+
+  
+ # Employment Status Plot
+  # Update the plots to handle empty data properly
+output$status_plot <- renderPlot({
+  req(filtered_data_sec8())
+  df <- filtered_data_sec8()
+  
+  if(nrow(df) == 0) {
+    plot.new()
+    text(0.5, 0.5, "No hay datos disponibles para este filtro", cex = 1.2)
+    return()
+  }
+  
+  status_df <- data.frame(
+    status = c("Trabajaban", "No Trabajaban", "Sin Respuesta"),
+    count = c(
+      sum(!is.na(df$P2_10) & df$P2_10 != "97", na.rm = TRUE),
+      sum(df$P2_10 == "97", na.rm = TRUE),
+      sum(is.na(df$P2_10))
+    )
+  )
+  status_df$percentage <- status_df$count / sum(status_df$count)
+  
+  ggplot(status_df, aes(x = status, y = percentage, fill = status)) +
+    geom_col() +
+    geom_text(aes(label = scales::percent(percentage, accuracy = 0.1)),
+              position = position_stack(vjust = 1.1)) +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_brewer(palette = "Set2") +
+    labs(title = "Estado Laboral Previo a la Detención",
+         subtitle = case_when(
+           input$work_filter == "all" ~ "Población Total",
+           input$work_filter == "women" ~ "Mujeres",
+           input$work_filter == "indigenous" ~ "Mujeres Lengua Indígena",
+           input$work_filter == "afro" ~ "Mujeres Autoadscripción Indígena/Afro"
+         ),
+         x = "",
+         y = "Porcentaje") +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5, size = 12),
+      axis.text = element_text(size = 12)
+    )
+})
+  
+  # Occupations Plot
+output$occupations_plot <- renderPlot({
+  req(filtered_data_sec8())
+  df <- filtered_data_sec8()
+  
+  if(nrow(df) == 0) {
+    plot.new()
+    text(0.5, 0.5, "No hay datos disponibles para este filtro", cex = 1.2)
+    return()
+  }
+    
+    # Define categorization function
+    categorize_occupation <- function(occupation) {
+      occupation <- tolower(as.character(occupation))
+      
+      if (grepl("comercio|comerciante|tienda", occupation)) {
+        return("Comercio")
+      } else if (grepl("campo|agricultor|cosecha|agricola", occupation)) {
+        return("Agricultura")
+      } else if (grepl("construccion|albañil|mantenimiento", occupation)) {
+        return("Construcción")
+      } else if (grepl("empleado|trabajador|jefe", occupation)) {
+        return("Servicios")
+      } else if (grepl("mecánico|carpintero|pintor", occupation)) {
+        return("Oficios")
+      } else if (grepl("no trabaja|no responde", occupation)) {
+        return("Sin Ocupación")
+      } else {
+        return("Otros")
+      }
+    }
+  
+    # Apply categorization and create plot data
+    df$Category <- sapply(df$P2_10, categorize_occupation)
+    
+    occupation_data <- df %>%
+      count(Category) %>%
+      mutate(Percentage = n / sum(n) * 100) %>%
+      arrange(desc(Percentage))
+    
+    ggplot(occupation_data, aes(x = reorder(Category, Percentage), y = Percentage)) +
+      geom_bar(stat = "identity", fill = "#8E44AD", width = 0.7) +
+      geom_text(aes(label = sprintf("%.1f%%", Percentage)),
+                hjust = -0.2) +
+      coord_flip() +
+      labs(title = "Distribución de Ocupaciones",
+           subtitle = paste("Filtro:", switch(input$work_filter,
+                                           "all" = "Población Total",
+                                           "women" = "Mujeres",
+                                           "indigenous" = "Mujeres Lengua Indígena",
+                                           "afro" = "Mujeres Autoadscripción Indígena/Afro")),
+           x = "",
+           y = "Porcentaje") +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12)
+      )
+  })
+
+# Income Sources Plot
+output$income_plot <- renderPlot({
+  req(filtered_data_sec8())
+  df <- filtered_data_sec8()
+  
+  income_sources <- df %>%
+    filter(!is.na(P2_13), !P2_13 %in% c("98", "99")) %>%
+    count(P2_13) %>%
+    mutate(
+      percentage = n / sum(n) * 100,
+      source = case_when(
+        P2_13 == "01" ~ "Apoyo familiar/amigos",
+        P2_13 == "02" ~ "Venta de productos",
+        P2_13 == "03" ~ "Servicios",
+        P2_13 == "04" ~ "Trabajo agrícola",
+        P2_13 == "05" ~ "Programa gubernamental",
+        P2_13 == "06" ~ "Actividades informales",
+        P2_13 == "07" ~ "Ahorros",
+        P2_13 == "08" ~ "Otras fuentes"
+      )
+    ) %>%
+    arrange(desc(percentage))
+  
+  ggplot(income_sources, aes(x = reorder(source, percentage), y = percentage)) +
+    geom_bar(stat = "identity", fill = "#2E86C1", width = 0.7) +
+    geom_text(aes(label = sprintf("%.1f%%", percentage)),
+              hjust = -0.2) +
+    coord_flip() +
+    labs(title = "Fuentes de Ingreso",
+         subtitle = paste("Filtro:", input$work_filter),
+         x = "",
+         y = "Porcentaje") +
+    theme_minimal()
+})
+  
+  # Section 11: Education Access ----
+  # Section 11: Acceso a Educación
+filtered_data_sec11 <- reactive({
+  req(data_main())
+  df <- data_main()$soc
+  
+  # Add data validation and debugging
+  validate(
+    need(df, "No se pueden cargar los datos de educación"),
+    need(nrow(df) > 0, "No hay datos disponibles")
+  )
+  
+  # Print debug information
+  message("Total records before filtering: ", nrow(df))
+  message("Women records: ", sum(df$SEXO == "2", na.rm = TRUE))
+  message("Indigenous women records: ", sum(df$SEXO == "2" & df$P1_12 == "1", na.rm = TRUE))
+  
+  result <- switch(input$edu_population_filter,
+    "Todos" = df,
+    "Mujeres" = df %>% filter(SEXO == "2"),
+    "Mujeres Lengua Indígena" = {
+      filtered <- df %>% 
+        filter(SEXO == "2") %>%
+        filter(!is.na(P1_12), P1_12 == "1")
+      message("Filtered indigenous women records: ", nrow(filtered))
+      validate(
+        need(nrow(filtered) > 0, "No hay datos disponibles para mujeres con lengua indígena")
+      )
+      filtered
+    },
+    "Mujeres Autoadscripción Indígena/Afro" = df %>% 
+      filter(SEXO == "2", !is.na(P1_15), P1_15 %in% c("1", "2"))
+  ) %>%
+    filter(NOM_ENT == "Campeche")
+  
+  # Final validation
+  validate(
+    need(nrow(result) > 0, "No hay datos disponibles para los filtros seleccionados")
+  )
+  
+  result
+})
+  
+  # Education Level Plot
+  # Update the education plot rendering
+output$education_level_plot <- renderPlot({
+  req(filtered_data_sec11())
+  
+  tryCatch({
+    df <- filtered_data_sec11()
+    
+    if(nrow(df) == 0) {
+      plot.new()
+      text(0.5, 0.5, "No hay datos disponibles para este filtro", cex = 1.2)
+      return()
+    }
+    
+    education_levels <- c(
+      "0" = "Sin educación",
+      "1" = "Preescolar",
+      "2" = "Primaria", 
+      "3" = "Secundaria",
+      "4" = "Carrera técnica (secundaria)",
+      "5" = "Normal básica",
+      "6" = "Preparatoria",
+      "7" = "Carrera técnica (preparatoria)", 
+      "8" = "Licenciatura",
+      "9" = "Posgrado"
+    )
+    
+    plot_data <- df %>%
+      count(P1_18_N) %>%
+      mutate(
+        level = case_when(
+          as.character(P1_18_N) %in% names(education_levels) ~ 
+            education_levels[as.character(P1_18_N)],
+          TRUE ~ "No especificado"
+        ),
+        percentage = n/sum(n) * 100
+      ) %>%
+      arrange(desc(percentage))
+    
+    ggplot(plot_data, aes(x = reorder(level, percentage), y = percentage)) +
+      geom_bar(stat = "identity", fill = "#2E86C1", width = 0.7) +
+      geom_text(aes(label = sprintf("%.1f%%", percentage)),
+                hjust = -0.2) +
+      coord_flip() +
+      labs(
+        title = "Distribución por Nivel Educativo",
+        subtitle = paste("Filtro:", input$edu_population_filter),
+        x = "",
+        y = "Porcentaje"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12)
+      )
+  }, error = function(e) {
+    message("Error in plot rendering: ", e$message)
+    plot.new()
+    text(0.5, 0.5, "Error al generar la visualización", cex = 1.2)
+  })
+})
+
+# Add UI feedback for data status
+output$data_status <- renderUI({
+  if (is.null(filtered_data_sec11()) || nrow(filtered_data_sec11()) == 0) {
+    div(
+      class = "alert alert-warning",
+      "No hay datos disponibles para los filtros seleccionados"
+    )
+  }
+})
+  
+  # Prison Education Plot
+output$prison_education_plot <- renderPlot({
+  req(filtered_data_sec11())
+  df <- filtered_data_sec11()
+  
+  plot_data <- df %>%
+    count(P1_19) %>%
+    mutate(
+      status = case_when(
+        P1_19 == "1" ~ "Estudiando",
+        P1_19 == "2" ~ "No estudiando",
+        TRUE ~ "Sin información"
+      ),
+      percentage = n/sum(n) * 100
+    )
+  
+  ggplot(plot_data, aes(x = status, y = percentage, fill = status)) +
+    geom_bar(stat = "identity", width = 0.7) +
+    geom_text(aes(label = sprintf("%.1f%%", percentage)),
+              position = position_stack(vjust = 0.5),
+              size = 5) +
+    scale_fill_manual(values = c("#2E86C1", "#E74C3C", "#95A5A6")) +
+    labs(
+      title = "Participación en Programas Educativos",
+      subtitle = paste("Filtro:", input$edu_population_filter),
+      x = "",
+      y = "Porcentaje"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")
+})
+
+# Dropout Reasons Plot
+output$dropout_reasons_plot <- renderPlot({
+  req(filtered_data_sec11())
+  df <- filtered_data_sec11()
+  
+  reasons <- c(
+    "01" = "No quise/No me interesa",
+    "02" = "Dificultad académica",
+    "03" = "Otras actividades",
+    "04" = "Actividades ilegales",
+    "05" = "Falta de dinero",
+    "06" = "Expulsión",
+    "07" = "Trabajo",
+    "08" = "Falta de documentos",
+    "09" = "Matrimonio/Embarazo",
+    "10" = "Detención",
+    "11" = "Salida de cárcel",
+    "12" = "Labores del hogar",
+    "13" = "Salud",
+    "14" = "Adicciones"
+  )
+  
+  plot_data <- df %>%
+    count(P1_21) %>%
+    mutate(
+      reason = reasons[P1_21],
+      percentage = n/sum(n) * 100
+    ) %>%
+    filter(!is.na(reason)) %>%
+    arrange(desc(percentage))
+  
+  ggplot(plot_data, aes(x = reorder(reason, percentage), y = percentage)) +
+    geom_bar(stat = "identity", fill = "#2E86C1", width = 0.7) +
+    geom_text(aes(label = sprintf("%.1f%%", percentage)),
+              hjust = -0.2) +
+    coord_flip() +
+    labs(
+      title = "Razones para Abandonar los Estudios",
+      subtitle = paste("Filtro:", input$edu_population_filter),
+      x = "",
+      y = "Porcentaje"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5, size = 12)
+    )
+})
+  
+  # Enhanced Data Visualizations ----
+  
+  # Geographical Distribution Map
+  output$geographical_map <- renderLeaflet({
+    req(filtered_data_sec1())
+    
+    # Calculate statistics for choropleth
+    state_stats <- filtered_data_sec1() %>%
+      group_by(NOM_ENT) %>%
+      summarise(
+        total_count = n(),
+        with_children = sum(P9_8_1 == "1", na.rm = TRUE),
+        pct_with_children = with_children / total_count * 100
+      )
+    
+    # Create color palette
+    pal <- colorNumeric(
+      palette = "YlOrRd",
+      domain = state_stats$pct_with_children
+    )
+    
+    # Create map
+    leaflet(state_stats) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      addCircleMarkers(
+        lng = ~longitude,
+        lat = ~latitude,
+        radius = ~sqrt(total_count)/2,
+        color = ~pal(pct_with_children),
+        popup = ~paste(
+          "<strong>", NOM_ENT, "</strong><br/>",
+          "Total: ", total_count, "<br/>",
+          "Con hijos: ", with_children, "<br/>",
+          "Porcentaje: ", round(pct_with_children, 1), "%"
+        )
+      ) %>%
+      addLegend(
+        position = "bottomright",
+        pal = pal,
+        values = ~pct_with_children,
+        title = "% con hijos",
+        opacity = 0.7
+      )
+  })
+  
+  # Temporal Analysis Plot
+  output$temporal_analysis <- renderPlot({
+    req(filtered_data_sec8())
+    
+    temporal_data <- filtered_data_sec8() %>%
+      mutate(year = year(as.Date(fecha_ingreso))) %>%
+      group_by(year) %>%
+      summarise(
+        working = sum(P2_10 != "97", na.rm = TRUE),
+        not_working = sum(P2_10 == "97", na.rm = TRUE)
+      ) %>%
+      pivot_longer(cols = c(working, not_working),
+                  names_to = "status",
+                  values_to = "count")
+    
+    ggplot(temporal_data, aes(x = year, y = count, fill = status)) +
+      geom_area(alpha = 0.6) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(
+        title = "Evolución Temporal del Estado Laboral",
+        x = "Año",
+        y = "Cantidad de Personas",
+        fill = "Estado"
+      ) +
+      theme_minimal()
+  })
+  
+  # Educational Progress Visualization
+  output$education_progress <- renderPlot({
+    req(filtered_data_sec11())
+    
+    progress_data <- filtered_data_sec11() %>%
+      group_by(P1_19) %>%
+      summarise(
+        initial_level = mean(as.numeric(P1_18_N), na.rm = TRUE),
+        current_level = mean(as.numeric(P1_19), na.rm = TRUE)
+      ) %>%
+      pivot_longer(cols = c(initial_level, current_level),
+                  names_to = "stage",
+                  values_to = "level")
+    
+    ggplot(progress_data, aes(x = stage, y = level, group = P1_19, color = factor(P1_19))) +
+      geom_line(size = 1) +
+      geom_point(size = 3) +
+      scale_color_brewer(palette = "Set1") +
+      labs(
+        title = "Progreso Educativo en el Sistema Penitenciario",
+        x = "Etapa",
+        y = "Nivel Educativo Promedio",
+        color = "Situación Actual"
+      ) +
+      theme_minimal()
+  })
+  
+  # Add to the server section:
+
+# Housing Expectations Data Filter
+filtered_data_sec13 <- reactive({
+  req(data_main())
+  df <- data_main()$main
+
+  validate(
+    need(!is.null(df) && nrow(df) > 0, "No se pueden cargar los datos")
+  )
+
+  result <- tryCatch({
+    switch(input$housing_filter,
+           "all" = df,
+           "women" = df %>% filter(SEXO == "2"),
+           "indigenous" = df %>%
+             filter(SEXO == "2", !is.na(P1_12), P1_12 == "1"),
+           "afro" = df %>%
+             filter(SEXO == "2", !is.na(P1_15), P1_15 %in% c("1", "2"))
+    )
+  }, error = function(e) {
+    NULL
+  })
+
+  if (is.null(result)) {
+    return(data.frame())  # Return empty data frame on error
+  }
+
+  result <- result %>% filter(NOM_ENT == "Campeche")
+
+  validate(
+    need(nrow(result) > 0, "No hay datos disponibles para los filtros seleccionados")
+  )
+
+  return(result)
+})
+
+# Housing Availability Plot
+# Update the plots to include error handling:
+output$housing_availability_plot <- renderPlot({
+  tryCatch({
+    req(filtered_data_sec13())
+    df <- filtered_data_sec13()
+    validate(
+      need(nrow(df) > 0, "No hay datos disponibles para este filtro.")
+    )
+
+    plot_data <- df %>%
+      count(P10_2) %>%
+      mutate(
+        status = case_when(
+          P10_2 == "1" ~ "Sí tiene donde vivir",
+          P10_2 == "2" ~ "No tiene donde vivir",
+          TRUE ~ "Sin información"
+        ),
+        percentage = n / sum(n) * 100
+      )
+
+    ggplot(plot_data, aes(x = status, y = percentage, fill = status)) +
+      geom_bar(stat = "identity", width = 0.7) +
+      geom_text(aes(label = sprintf("%.1f%%", percentage)),
+                position = position_stack(vjust = 0.5)) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(
+        title = "Disponibilidad de Vivienda al Salir",
+        x = "",
+        y = "Porcentaje"
+      ) +
+      theme_minimal()
+  }, error = function(e) {
+    plot.new()
+    text(0.5, 0.5, "Error al generar la visualización", cex = 1.2)
+  })
+})
+
+# Housing Reasons Plot
+# Housing Reasons Plot
+output$housing_reasons_plot <- renderPlot({
+  req(filtered_data_sec13())
+  df <- filtered_data_sec13()
+  
+  # Debugging steps
+  print("Unique values in P10_4:")
+  print(unique(df$P10_4))
+  print("Class of P10_4:")
+  print(class(df$P10_4))
+  
+  reasons <- c(
+    "1" = "Rechazo familiar",
+    "2" = "Mudanza familiar",
+    "3" = "Falta de recursos",
+    "4" = "Pérdida de contacto",
+    "5" = "No quiere afectar familia"
+  )
+  
+  plot_data <- df %>%
+    # Convert P10_4 to character to ensure consistent handling
+    mutate(P10_4 = as.character(P10_4)) %>%
+    # Exclude specific values, handling potential type issues
+    filter(!P10_4 %in% c("8", "9", NA)) %>%
+    count(P10_4) %>%
+    mutate(
+      # Use careful mapping with error handling
+      reason = ifelse(P10_4 %in% names(reasons), 
+                      reasons[P10_4], 
+                      paste("Razón desconocida:", P10_4)),
+      percentage = n/sum(n) * 100
+    ) %>%
+    arrange(desc(percentage))
+  
+  ggplot(plot_data, aes(x = reorder(reason, percentage), y = percentage)) +
+    geom_bar(stat = "identity", fill = "#2E86C1", width = 0.7) +
+    geom_text(aes(label = sprintf("%.1f%%", percentage)),
+              hjust = -0.2) +
+    coord_flip() +
+    labs(
+      title = "Razones por No Tener Vivienda al Salir",
+      subtitle = paste("Filtro:", input$housing_filter),
+      x = "",
+      y = "Porcentaje"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5, size = 12)
+    )
+})
+
+# Previous Housing Plot
+# Previous Housing Plot
+output$previous_housing_plot <- renderPlot({
+  req(filtered_data_sec13())
+  df <- filtered_data_sec13()
+
+  plot_data <- df %>%
+    count(P10_3) %>%
+    mutate(
+      status = case_when(
+        P10_3 == "1" ~ "Misma vivienda anterior",
+        P10_3 == "2" ~ "Vivienda diferente",
+        TRUE ~ "Sin información"
+      ),
+      percentage = n/sum(n) * 100
+    )
+
+  ggplot(plot_data, aes(x = status, y = percentage, fill = status)) +
+    geom_bar(stat = "identity", width = 0.7) +
+    geom_text(aes(label = sprintf("%.1f%%", percentage)),
+              position = position_stack(vjust = 0.5)) +
+    scale_fill_brewer(palette = "Set2") +
+    labs(
+      title = "Comparación de Vivienda Anterior",
+      x = "",
+      y = "Porcentaje"
+    ) +
+    theme_minimal()
+  })
+
+
+# Tables
+output$housing_availability_table <- renderDT({
+  req(filtered_data_sec13())
+  df <- filtered_data_sec13()
+  
+  df %>%
+    count(P10_2) %>%
+    mutate(
+      status = case_when(
+        P10_2 == "1" ~ "Sí tiene donde vivir",
+        P10_2 == "2" ~ "No tiene donde vivir",
+        TRUE ~ "Sin información"
+      ),
+      percentage = sprintf("%.1f%%", n/sum(n) * 100)
+    ) %>%
+    select(Status = status, Count = n, Percentage = percentage) %>%
+    datatable(options = list(dom = 't'))
+})
+
+output$housing_reasons_plot <- renderPlot({
+  # Ensure data is available
+  req(filtered_data_sec13())
+  
+  # Create the dataframe
+  df <- filtered_data_sec13()
+  
+  # Debugging: Comprehensive column and data checks
+  print("Column names in the dataframe:")
+  print(names(df))
+  
+  print("Is P10_4 column present?")
+  print("P10_4" %in% names(df))
+  
+  print("Data types of columns:")
+  print(str(df))
+  
+  # If column exists, proceed with plotting
+  if("P10_4" %in% names(df)) {
+    # Print unique values with additional checks
+    print("Unique values in P10_4:")
+    print(unique(df$P10_4))
+    print("Class of P10_4:")
+    print(class(df$P10_4))
+  }
+  
+  # Define reasons mapping
+  reasons <- c(
+    "1" = "Rechazo familiar", 
+    "2" = "Mudanza familiar", 
+    "3" = "Falta de recursos", 
+    "4" = "Pérdida de contacto", 
+    "5" = "No quiere afectar familia"
+  )
+  
+  tryCatch({
+    plot_data <- df %>% 
+      # Modify filtering to handle unexpected values
+      filter(!P10_4 %in% c("8", "9", "g")) %>%
+      # If the column is not numeric, convert carefully
+      mutate(P10_4 = as.character(P10_4)) %>%
+      count(P10_4) %>% 
+      mutate(
+        reason = ifelse(P10_4 %in% names(reasons), 
+                        reasons[P10_4], 
+                        paste("Unknown Reason:", P10_4)),
+        percentage = n/sum(n) * 100
+      ) %>% 
+      arrange(desc(percentage))
+    
+    # Create the plot
+    ggplot(plot_data, aes(x = reorder(reason, percentage), y = percentage)) +
+      geom_bar(stat = "identity", fill = "#2E86C1", width = 0.7) +
+      geom_text(aes(label = sprintf("%.1f%%", percentage)), hjust = -0.2) +
+      coord_flip() +
+      labs(
+        title = "Razones por No Tener Vivienda al Salir", 
+        subtitle = paste("Filtro:", input$housing_filter), 
+        x = "", 
+        y = "Porcentaje"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12)
+      )
+  }, error = function(e) {
+    # Print error message for debugging
+    print(paste("Error:", e$message))
+    
+    # Return a null plot or error plot
+    ggplot() + 
+      annotate("text", x = 1, y = 1, label = paste("Error:", e$message)) +
+      theme_minimal()
+  })
+})
+
+output$previous_housing_table <- renderDT({
+  req(filtered_data_sec13())
+  df <- filtered_data_sec13()
+  
+  df %>%
+    count(P10_3) %>%
+    mutate(
+      status = case_when(
+        P10_3 == "1" ~ "Misma vivienda anterior",
+        P10_3 == "2" ~ "Vivienda diferente",
+        TRUE ~ "Sin información"
+      ),
+      percentage = sprintf("%.1f%%", n/sum(n) * 100)
+    ) %>%
+    select(Status = status, Count = n, Percentage = percentage) %>%
+    datatable(options = list(dom = 't'))
+})
+
+# Add a UI status indicator
+output$data_status_sec13 <- renderUI({
+  if (is.null(filtered_data_sec13()) || nrow(filtered_data_sec13()) == 0) {
+    div(
+      class = "alert alert-warning",
+      "No hay datos disponibles para los filtros seleccionados"
+    )
+  }
+})
+  
+}
+
+
 
 # Run the app
 shinyApp(ui = ui, server = server)
 ```
-
-
 ---
 # Seccion 1
 
@@ -277,7 +1168,7 @@ library(DT)
 library(scales)
 ```
 
-## App shiny
+# Section 1 
 ```{r release}
 library(shiny)
 library(tidyverse)
@@ -550,7 +1441,7 @@ server <- function(input, output, session) {
 shinyApp(ui = ui, server = server)
 ```
 
-### Con mapas 
+# Section 1 
 ```{R}
 library(shiny)
 library(leaflet)
