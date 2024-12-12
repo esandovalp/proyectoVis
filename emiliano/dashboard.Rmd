@@ -216,6 +216,36 @@ tabPanel("Expectativas de Vivienda",
   )
 ),
   
+tabPanel("Visualizaciones Adicionales",
+  fluidRow(
+    column(12, 
+      h3("Análisis Geoespacial y Estadístico", 
+         style = "text-align: center; margin-bottom: 20px;")
+    )
+  ),
+  fluidRow(
+    # Geospatial plots
+    column(6,
+      h4("Distribución Geográfica por Estado", 
+         style = "text-align: center;"),
+      leafletOutput("map_plot1", height = "400px")
+    ),
+    column(6,
+      h4("Densidad de Población Penitenciaria", 
+         style = "text-align: center;"),
+      leafletOutput("map_plot2", height = "400px")
+    )
+  ),
+  fluidRow(
+    # Single histogram using full width
+    column(12,
+      h4("Distribución de Edades", 
+         style = "text-align: center;"),
+      plotOutput("age_histogram", height = "400px")
+    )
+  )
+),
+
 )
 
 # Server logic implementation
@@ -1149,6 +1179,218 @@ output$data_status_sec13 <- renderUI({
       "No hay datos disponibles para los filtros seleccionados"
     )
   }
+})
+
+# Geospatial Plot 1: Population Distribution
+output$map_plot1 <- renderLeaflet({
+  mexico_coords <- data.frame(
+    estado = unique(data_main()$main$NOM_ENT),
+    lat = c(19.432608, 25.565, 28.634, 24.144, 19.832, 16.757, 28.635, 27.058, 
+            19.123, 24.027, 20.917, 17.439, 20.091, 20.659, 19.359, 19.566, 
+            18.926, 21.751, 25.686, 17.071, 19.041, 20.588, 19.666, 22.158, 
+            24.808, 29.072, 18.003, 23.741, 19.313, 19.173, 20.709, 22.770),
+    lng = c(-99.133208, -108.989, -106.089, -110.299, -90.538, -93.129, -106.089, 
+            -101.706, -104.825, -104.653, -101.256, -99.543, -98.762, -103.348, 
+            -99.650, -101.189, -99.070, -104.895, -100.316, -96.721, -98.206, 
+            -100.393, -88.327, -100.987, -107.394, -110.974, -92.919, -98.998, 
+            -98.239, -96.142, -89.070, -102.583)
+  )
+  
+  pop_data <- data_main()$main %>%
+    group_by(NOM_ENT) %>%
+    summarise(count = n()) %>%
+    left_join(mexico_coords, by = c("NOM_ENT" = "estado"))
+  
+  pal <- colorNumeric(
+    palette = "YlOrRd",
+    domain = pop_data$count
+  )
+  
+  leaflet(pop_data) %>%
+    addProviderTiles(providers$CartoDB.Positron) %>%
+    addCircleMarkers(
+      ~lng, ~lat,
+      radius = ~sqrt(count)/2,
+      fillColor = ~pal(count),
+      color = "white",
+      weight = 1,
+      opacity = 1,
+      fillOpacity = 0.7,
+      popup = ~paste(
+        "<strong>", NOM_ENT, "</strong><br/>",
+        "Población:", count
+      )
+    ) %>%
+    addLegend(
+      position = "bottomright",
+      pal = pal,
+      values = ~count,
+      title = "Población",
+      opacity = 0.7
+    )
+})
+
+# Geospatial Plot 2: Education Level Distribution
+output$map_plot2 <- renderLeaflet({
+  education_data <- data_main()$soc %>%
+    group_by(NOM_ENT) %>%
+    summarise(
+      avg_education = mean(as.numeric(P1_18_N), na.rm = TRUE)
+    ) %>%
+    left_join(
+      data.frame(
+        estado = unique(data_main()$main$NOM_ENT),
+        lat = c(19.432608, 25.565, 28.634, 24.144, 19.832, 16.757, 28.635, 27.058, 
+                19.123, 24.027, 20.917, 17.439, 20.091, 20.659, 19.359, 19.566, 
+                18.926, 21.751, 25.686, 17.071, 19.041, 20.588, 19.666, 22.158, 
+                24.808, 29.072, 18.003, 23.741, 19.313, 19.173, 20.709, 22.770),
+        lng = c(-99.133208, -108.989, -106.089, -110.299, -90.538, -93.129, -106.089, 
+                -101.706, -104.825, -104.653, -101.256, -99.543, -98.762, -103.348, 
+                -99.650, -101.189, -99.070, -104.895, -100.316, -96.721, -98.206, 
+                -100.393, -88.327, -100.987, -107.394, -110.974, -92.919, -98.998, 
+                -98.239, -96.142, -89.070, -102.583)
+      ),
+      by = c("NOM_ENT" = "estado")
+    )
+  
+  pal2 <- colorNumeric(
+    palette = "Viridis",
+    domain = education_data$avg_education
+  )
+  
+  leaflet(education_data) %>%
+    addProviderTiles(providers$CartoDB.Positron) %>%
+    addCircleMarkers(
+      ~lng, ~lat,
+      radius = 10,
+      fillColor = ~pal2(avg_education),
+      color = "white",
+      weight = 1,
+      opacity = 1,
+      fillOpacity = 0.7,
+      popup = ~paste(
+        "<strong>", NOM_ENT, "</strong><br/>",
+        "Nivel Educativo Promedio:", round(avg_education, 2)
+      )
+    ) %>%
+    addLegend(
+      position = "bottomright",
+      pal = pal2,
+      values = ~avg_education,
+      title = "Nivel Educativo",
+      opacity = 0.7
+    )
+})
+
+# Histogram: Age Distribution
+output$age_histogram <- renderPlot({
+  # Directly access the data
+  req(data_main())
+  df <- isolate(data_main())
+  
+  # Very basic data cleaning
+  ages <- as.numeric(df$soc$EDAD)
+  ages <- ages[!is.na(ages) & ages >= 18 & ages <= 100]
+  
+  # Create basic histogram
+  hist(
+    ages,
+    breaks = seq(15, 100, by = 5),
+    main = "Distribución de Edades",
+    xlab = "Edad (años)",
+    ylab = "Frecuencia",
+    col = "#2E86C1",
+    border = "white"
+  )
+})
+
+# Alternative using ggplot2 with minimal operations
+output$age_histogram <- renderPlot({
+  req(data_main())
+  
+  # Create data frame with just age data
+  plot_data <- data.frame(
+    edad = as.numeric(data_main()$soc$P1_3)
+  ) %>%
+    filter(!is.na(edad), edad >= 18, edad < 97)
+  
+  ggplot(plot_data, aes(x = edad)) +
+    geom_histogram(binwidth = 1,
+                  fill = "#2E86C1",
+                  color = "white",
+                  alpha = 0.7) +
+    labs(title = "Distribución de Edades en Población Penitenciaria",
+         x = "Edad (años)",
+         y = "Frecuencia") +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 10),
+      panel.grid.minor = element_blank()
+    )
+})
+
+# Boxplot: Education Level by Gender
+# Modified Boxplot: Education Level by Gender
+output$education_boxplot <- renderPlot({
+  req(data_main())
+  
+  edu_data <- data_main()$soc %>%
+    mutate(
+      SEXO = factor(SEXO, 
+                    levels = c("1", "2"),
+                    labels = c("Hombre", "Mujer")),
+      nivel_num = as.numeric(P1_18_N)
+    ) %>%
+    filter(!is.na(nivel_num))
+  
+  # Create education level labels with line breaks
+  edu_labels <- c(
+    "Sin\neducación",
+    "Preescolar",
+    "Primaria",
+    "Secundaria",
+    "Carrera técnica\n(secundaria)",
+    "Normal\nbásica",
+    "Preparatoria",
+    "Carrera técnica\n(preparatoria)",
+    "Licenciatura",
+    "Posgrado"
+  )
+  
+  ggplot(edu_data, aes(x = SEXO, y = nivel_num, fill = SEXO)) +
+    geom_boxplot(width = 0.5, alpha = 0.7, outlier.shape = 21) +
+    stat_summary(fun = mean, 
+                geom = "point", 
+                shape = 23, 
+                size = 3, 
+                fill = "white") +
+    scale_fill_manual(values = c("#2E86C1", "#E74C3C")) +
+    scale_y_continuous(
+      breaks = 0:9,
+      labels = edu_labels,
+      limits = c(-0.5, 9.5),
+      expand = expansion(mult = c(0.1, 0.1))  # Add some padding
+    ) +
+    labs(
+      title = "Nivel Educativo por Género",
+      x = "Género",
+      y = "Nivel Educativo"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 9),  # Reduced text size
+      axis.text.y = element_text(hjust = 1),
+      legend.position = "none",
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(20, 20, 20, 100)  # Added left margin for labels
+    ) +
+    coord_flip()
+
 })
   
 }
